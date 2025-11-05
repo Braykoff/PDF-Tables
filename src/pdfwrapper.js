@@ -25,19 +25,19 @@ async function loadPDFFromFile(file) {
 /**
  * Renders a PDF.JS pdf onto a new canvas and returns its width and height.
  * @param {PDFDocumentProxy} pdf PDF object returned from PDF.JS.
- * @param {int} page Page number (starting at 1).
+ * @param {int} pageNum Page number (starting at 1).
  * @param {float} scale Viewport scaling (default 1.0).
  * @returns Created canvas, PDF width, PDF height.
  */
-async function renderPDFOntoCanvas(pdf, page, scale=1.0) {
-  const page = await pdf.getPage(page);
+async function renderPDFOntoCanvas(pdf, pageNum, scale=1.0) {
+  const page = await pdf.getPage(pageNum);
   const viewport = page.getViewport({ scale: 1 });
 
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d");
   canvas.width = viewport.width;
   canvas.height = viewport.height;
-  canvas.setAttribute("date-page", page);
+  canvas.setAttribute("date-page", pageNum);
 
   await page.render({ canvasContext: ctx, viewport }).promise;
   return [canvas, viewport.width, viewport.height];
