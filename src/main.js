@@ -58,14 +58,14 @@ dom.fileInput.addEventListener("change", async () => {
   pdf = await loadPDFFromFile(rawFile);
 
   currentPage = 1;
-  dom.pageCounter.innerText = `Page 1/${pdf.numPages}`
+  dom.pageCounter.innerText = `Page 1/${pdf.numPages}`;
 
-  maxWidth = 1
-  totalHeight = 1
+  maxWidth = 1;
+  totalHeight = 0;
 
   // Load each page
   for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-    const [canvas, w, h] = renderPDFOntoCanvas(pdf, pageNum);
+    const [canvas, w, h] = await renderPDFOntoCanvas(pdf, pageNum);
 
     // Keep track of each page
     maxWidth = Math.max(maxWidth, w);
@@ -82,7 +82,7 @@ dom.fileInput.addEventListener("change", async () => {
 
   // Overlay table container
   dom.tableContainer.style.width = `${maxWidth}px`;
-  dom.tableContainer.style.height = `${totalHeight - 10}px`;
+  dom.tableContainer.style.height = `${Math.max(1, totalHeight - 10)}px`;
 
   console.log(`Loaded ${rawFile.name} with ${pages.length} pages`);
 });
