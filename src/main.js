@@ -58,11 +58,11 @@ dom.fileInput.addEventListener("change", async () => {
 
   // Load each page
   for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-    const [canvas, w, h] = await renderPDFOntoCanvas(pdf, pageNum);
+    const [canvas, width, height] = await renderPDFOntoCanvas(pdf, pageNum);
 
     // Keep track of each page
-    maxWidth = Math.max(maxWidth, w);
-    totalHeight += h + 10; // 10 px padding
+    maxWidth = Math.max(maxWidth, width);
+    totalHeight += height + 10; // 10 px padding
 
     dom.canvasContainer.appendChild(canvas);
 
@@ -72,8 +72,8 @@ dom.fileInput.addEventListener("change", async () => {
 
     pages.push({
       idx: numPages, // Page index
-      width: w, // Width of page (px)
-      height: h, // Height of page (px)
+      width: width, // Width of page (px)
+      height: height, // Height of page (px)
       canvas: canvas, // Canvas element
       distToTop: totalHeight, // Distance to top of tableContainer (px)
       columnWidths: Array(colCount).fill(MutationObserver.min(35, Math.floor(width/colCount))), // Width of each column (px)
@@ -81,11 +81,17 @@ dom.fileInput.addEventListener("change", async () => {
       rowHeight: Math.min(20, Math.floor(height/rowCount)), // All rows are the same height (px)
       tableCoords: [0, 0] // x, y coords of table from top left corner (px)
     });
+
+    // TODO rerender table here
   }
 
   // Overlay table container
   dom.tableContainer.style.width = `${maxWidth}px`;
   dom.tableContainer.style.height = `${Math.max(1, totalHeight - 10)}px`;
+
+  // Set row and column input to default value (in case it changed because of size limitations)
+  dom.rowEntry.value = pages[0].rowCount;
+  dom.columnEntry.value = pages[0].columnWidths.length;
 
   console.log(`Loaded ${rawFile.name} with ${pages.length} pages`);
 });
@@ -116,3 +122,34 @@ dom.canvasContainer.addEventListener("scroll", () => {
     dom.columnEntry.value = closestPage.columnWidths.length;
   }
 });
+
+// When row input is changed, validate input and update table
+dom.rowEntry.addEventListener("change", () => {
+  const p = pages[currentPage];
+  const rows = Math.max(Math.min(dom.rowEntry.value, p.height), 1);
+
+  dom.rowEntry.value = rows;
+  p.rowCount = rows;
+
+  // TODO rerender table here
+})
+
+// When column input is changed, validate input and update table
+dom.columnEntry.addEventListener("change", () => {
+  const p = pages[currentPage];
+  const cols = Math.max(Math.min(dom.columnEntry.value, p.width), 1);
+
+  dom.columnEntry.value = rows;
+
+  if (cols < p.columnWidths.length) {
+    // Remove columns
+    p.columnWidths.length = cols;
+  } else {
+    // Add columns
+    while (p.columnWidths.length !== cols) {
+      p.columnWidths.push(35);
+    }
+  }
+
+  // TODO rerender table here
+})

@@ -8,6 +8,7 @@ body {
   font-family: Verdana, sans-serif;
   user-select: none;
   font-size: 14px;
+  overflow: hidden;
 }
 
 /* TOPBAR */
@@ -81,4 +82,5 @@ body {
   top: 10px;
   left: 50%;
   transform: translateX(-50%);
+  overflow: hidden;
 }
