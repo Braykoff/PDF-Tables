@@ -9,6 +9,7 @@ const applyAllButton = document.getElementById("applyToAllAction");
 const extractButton = document.getElementById("extractAction");
 
 const canvasContainer = document.getElementById("canvasContainer");
+const tableContainer = document.getElementById("tableContainer");
 var pageCanvases = [];
 
 // PDF File object
@@ -21,8 +22,8 @@ fileInput.addEventListener("change", async () => {
   // Load the library here
   pdfjsLib.GlobalWorkerOptions.workerSrc = "https://www.raykoff.org/PDF-Tables/pdfjs-5.4.394-legacy-dist/build/pdf.worker.mjs";
 
-  // Check file is selected
-  if (fileInput.files.length != 0) {
+  // Check file is selected and no file has already been loaded
+  if (fileInput.files.length != 0 || pdfFile != undefined) {
     pdfFile = fileInput.files[0]
 
     fileTitle.innerText = pdfFile.name;
@@ -32,11 +33,6 @@ fileInput.addEventListener("change", async () => {
     fileInput.setAttribute("disabled", "Y");
     fileInputContainer.classList.remove("action");
 
-    // Reset container
-    canvasContainer.style.display = "block";
-    pageCanvases = [];
-    canvasContainer.innerHTML = "";
-
     // Load PDF
     const arrayBuffer = await pdfFile.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
@@ -45,10 +41,16 @@ fileInput.addEventListener("change", async () => {
     pageCount = pdf.numPages;
     pageCountElem.innerText = `Page 1/${pageCount}`
 
+    maxWidth = 1
+    totalHeight = 1
+
     // Load each page
     for (let pageNum = 1; pageNum <= pageCount; pageNum++) {
       const page = await pdf.getPage(pageNum);
       const viewport = page.getViewport({ scale: 1 });
+
+      maxWidth = Math.max(maxWidth, viewport.width);
+      totalHeight += viewport.height + 10; // 10 px padding
 
       const canvas = document.createElement("canvas");
       const ctx = canvas.getContext("2d");
@@ -60,6 +62,10 @@ fileInput.addEventListener("change", async () => {
       canvasContainer.appendChild(canvas);
       pageCanvases.push(canvas);
     }
+
+    // Overlay table container
+    tableContainer.style.width = `${maxWidth}px`;
+    tableContainer.style.height = `${totalHeight}px`;
   }
 });
 
