@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <title>PDFTables</title>
+  <link rel="stylesheet" href="./index.css">
+  <script type="module" src="./pdfjs-5.4.394-legacy-dist/build/pdf.mjs"></script>
+</head>
+
+<body>
+
+  <div id="topbar" data-disabled="N">
+    <span class="action" id="fileInputContainer">
+      <input type="file" id="fileInput" accept="application/pdf" style="display:none">
+      <label for="fileInput" id="fileTitle" style="cursor:pointer;">No File Open...</label>
+    </span>
+    <span id="pageCount">Page ?</span>
+    <span>Columns: <input id="columnEntry" type="number" value="3">x<input id="rowEntry" type="number" value="4"></span>
+    <span class="action" id="applyToAllAction">Apply All</span>
+    <span class="action" id="extractAction">Extract</span>
+  </div>
+
+  <div id="canvasContainer">
+  </div>
+
+  <script src="./index.js"></script>
+
+</body>
+
+</html>
