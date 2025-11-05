@@ -37,7 +37,7 @@ async function renderPDFOntoCanvas(pdf, pageNum, scale=1.0) {
   const ctx = canvas.getContext("2d");
   canvas.width = viewport.width;
   canvas.height = viewport.height;
-  canvas.setAttribute("date-page", pageNum);
+  canvas.setAttribute("data-page", pageNum);
 
   await page.render({ canvasContext: ctx, viewport }).promise;
   return [canvas, viewport.width, viewport.height];

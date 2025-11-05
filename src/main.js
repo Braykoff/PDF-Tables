@@ -15,14 +15,7 @@ const dom = {
 var pdf = undefined;
 var currentPage = -1;
 
-/**
- * In format:
- * {
- *    "width": 1,
- *    "height": 2,
- *    "canvas": DOMElement
- * }
- */
+// Contains idx, width, height, canvas, distToTop, columnWidth, rowCount, rowHeight, tableCoords
 var pages = []
 
 // File input changed, load new file
@@ -73,10 +66,20 @@ dom.fileInput.addEventListener("change", async () => {
 
     dom.canvasContainer.appendChild(canvas);
 
+    // Max number of cols = width, rows = height because min width/height is 1px
+    let colCount = Math.min(parseInt(dom.columnEntry.value), width);
+    let rowCount = Math.min(parseInt(dom.rowEntry.value), height);
+
     pages.push({
-      width: w,
-      height: h,
-      canvas: canvas
+      idx: numPages, // Page index
+      width: w, // Width of page (px)
+      height: h, // Height of page (px)
+      canvas: canvas, // Canvas element
+      distToTop: totalHeight, // Distance to top of tableContainer (px)
+      columnWidths: Array(colCount).fill(MutationObserver.min(35, Math.floor(width/colCount))), // Width of each column (px)
+      rowCount: rowCount, // Number of rows
+      rowHeight: Math.min(20, Math.floor(height/rowCount)), // All rows are the same height (px)
+      tableCoords: [0, 0] // x, y coords of table from top left corner (px)
     });
   }
 
@@ -89,7 +92,7 @@ dom.fileInput.addEventListener("change", async () => {
 
 // On scroll, update page number
 dom.canvasContainer.addEventListener("scroll", () => {
-  let closestCanvas = null;
+  let closestPage = null;
   let closestDist = Infinity;
 
   // Find closest canvas to viewport center
@@ -99,13 +102,17 @@ dom.canvasContainer.addEventListener("scroll", () => {
 
     if (dist < closestDist) {
       closestDist = dist;
-      closestCanvas = page.canvas;
+      closestPage = page;
     }
   }
 
   // Use closest page as current page
-  if (closestCanvas) {
-    currentPage = parseInt(closestCanvas.getAttribute("data-page"));
+  if (closestPage) {
+    currentPage = closestPage.idx;
     dom.pageCounter.innerText = `Page ${currentPage}/${pages.length}`;
+
+    // Update table dimension input
+    dom.rowEntry.value = closestPage.rowCount;
+    dom.columnEntry.value = closestPage.columnWidths.length;
   }
 });
