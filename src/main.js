@@ -71,7 +71,7 @@ dom.fileInput.addEventListener("change", async () => {
     let rowCount = Math.min(parseInt(dom.rowEntry.value), height);
 
     pages.push({
-      idx: numPages, // Page index
+      idx: pdf.numPages, // Page index
       width: width, // Width of page (px)
       height: height, // Height of page (px)
       canvas: canvas, // Canvas element
