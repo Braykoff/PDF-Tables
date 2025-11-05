@@ -12,7 +12,7 @@ const dom = {
 };
 
 // PDF File object
-var pdfFile = undefined;
+var pdf = undefined;
 var currentPage = -1;
 
 /**
@@ -55,7 +55,7 @@ dom.fileInput.addEventListener("change", async () => {
   pages = []
 
   // Load PDF
-  pdfFile = await loadPDFFromFile(rawFile);
+  pdf = await loadPDFFromFile(rawFile);
 
   currentPage = 1;
   dom.pageCounter.innerText = `Page 1/${pdf.numPages}`
