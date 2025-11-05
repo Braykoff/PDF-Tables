@@ -6,28 +6,35 @@
   <title>PDFTables</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <link rel="stylesheet" href="./src/index.css">
-  <script type="module" src="./pdfjs-5.4.394-legacy-dist/build/pdf.mjs"></script>
+  <script type="module" src="./pdfjs-5.4.394-legacy-dist/build/pdf.mjs" async></script>
 </head>
 
 <body>
-
-  <div id="topbar" data-disabled="N">
-    <span class="action" id="fileInputContainer">
+  <!-- TOPBAR -->
+  <div id="topbar">
+    <!-- File input -->
+    <span class="action" id="fileInputContainer" title="Click to upload PDF">
       <input type="file" id="fileInput" accept="application/pdf" style="display:none">
       <label for="fileInput" id="fileTitle" style="cursor:pointer;">No File Open...</label>
     </span>
+    <!-- Page counter -->
     <span id="pageCount">Page ?</span>
+    <!-- Table dimensions-->
     <span>Columns: <input id="columnEntry" type="number" value="3">x<input id="rowEntry" type="number" value="4"></span>
+    <!-- Actions -->
+    <span class="action" id="showTextboxesAction">Show Textboxes</span>
     <span class="action" id="applyToAllAction">Apply All</span>
     <span class="action" id="extractAction">Extract</span>
   </div>
 
+  <!-- CANVASES -->
   <div id="canvasContainer">
     <div id="tableContainer"></div>
   </div>
 
-  <script src="./src/index.js"></script>
-
+  <!-- SCRIPTS -->
+  <script src="./src/pdfwrapper.js"></script>
+  <script src="./src/main.js" defer></script>
 </body>
 
 </html>

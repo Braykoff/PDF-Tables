@@ -21,11 +21,6 @@ body {
   justify-content: space-between;
 }
 
-#topbar[data-disabled="Y"] {
-  color: gray;
-  cursor: not-allowed;
-}
-
 #topbar span {
   height: 100%;
   vertical-align: middle;
@@ -38,20 +33,21 @@ body {
   display: flex-item;
 }
 
-#topbar[data-disabled="N"] .action {
+#topbar .action {
   cursor: pointer;
 }
 
-#topbar[data-disabled="N"] .action:hover {
+#topbar .action:hover {
   color: gray;
 }
 
-#topbar[data-disabled="N"] .action:active {
+#topbar .action:active {
   background: gray;
 }
 
 #topbar span input {
   width: 20px;
+  appearance: none;
   -webkit-appearance: none;
   -moz-appearance: textfield;
   margin: 0;
@@ -82,7 +78,7 @@ body {
 #canvasContainer #tableContainer {
   position: absolute;
   z-index: 2;
-  top: 0;
+  top: 10px;
   left: 50%;
   transform: translateX(-50%);
 }
