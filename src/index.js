@@ -19,7 +19,7 @@ var currentPage = -1;
 // File input changed, load new file
 fileInput.addEventListener("change", async () => {
   // Load the library here
-  pdfjsLib.GlobalWorkerOptions.workerSrc = "https://www.raykoff.org/pdf-tables/pdfjs-5.4.394-legacy-dist/build/pdf.worker.mjs";
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "https://www.raykoff.org/PDF-Tables/pdfjs-5.4.394-legacy-dist/build/pdf.worker.mjs";
 
   // Check file is selected
   if (fileInput.files.length != 0) {
