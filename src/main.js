@@ -15,6 +15,15 @@ const dom = {
   tableContainer: document.getElementById("tableContainer")
 };
 
+// Constants
+const constants = {
+  pageMargin: 10, // Margin between pages, px
+  maxRows: 200, // Max number of rows
+  maxCols: 50, // Max numbers of columns
+  defaultRowSize: 20, // Default row size, px
+  defaultColSize: 35 // Default column size, px
+}
+
 // Current app state
 const state = {
   currentPage: -1,
@@ -86,9 +95,9 @@ dom.fileInput.addEventListener("change", async () => {
       }
     }
 
-    // Max number of cols = width, rows = height because min width/height is 1px
-    let colCount = Math.min(parseInt(dom.columnEntry.value), width);
-    let rowCount = Math.min(parseInt(dom.rowEntry.value), height);
+    // Use current row/column dimensions
+    let colCount = parseInt(dom.columnEntry.value);
+    let rowCount = parseInt(dom.rowEntry.value);
 
     state.pages.push({
       idx: pageNum, // Page index
@@ -96,16 +105,17 @@ dom.fileInput.addEventListener("change", async () => {
       height: height, // Height of page (px)
       canvas: canvas, // Canvas element
       distToTop: totalHeight, // Distance to top of tableContainer (px)
-      columnWidths: Array(colCount).fill(Math.min(35, Math.floor(width / colCount))), // Width of each column (px)
+      columnWidths: Array(colCount).fill(constants.defaultColSize), // Width of each column (px)
       rowCount: rowCount, // Number of rows
-      rowHeight: Math.min(20, Math.floor(height / rowCount)), // All rows are the same height (px)
+      rowHeight: constants.defaultRowSize, // All rows are the same height (px)
       tableCoords: [0, 0], // x, y coords of table from top left corner (px)
-      words: words
+      words: words, // List of words and x, y coords
+      dragHandler: null // DraggableTable object
     });
 
     // Keep track of each page position
     maxWidth = Math.max(maxWidth, width);
-    totalHeight += height + 10; // 10 px padding
+    totalHeight += height + constants.pageMargin;
   }
 
   // Now show PDF
@@ -113,16 +123,16 @@ dom.fileInput.addEventListener("change", async () => {
 
   // Overlay table container
   dom.tableContainer.style.width = `${maxWidth}px`;
-  dom.tableContainer.style.height = `${Math.max(1, totalHeight - 10)}px`;
+  dom.tableContainer.style.height = `${Math.max(1, totalHeight - constants.pageMargin)}px`;
 
   // TODO rerender tables
 
   // Overlay word canvas
   dom.wordCanvas.style.width = `${maxWidth}px`;
-  dom.wordCanvas.style.height = `${Math.max(1, totalHeight - 10)}px`;
+  dom.wordCanvas.style.height = `${Math.max(1, totalHeight - constants.pageMargin)}px`;
 
   dom.wordCanvas.width = maxWidth;
-  dom.wordCanvas.height = Math.max(1, totalHeight - 10);
+  dom.wordCanvas.height = Math.max(1, totalHeight - constants.pageMargin);
 
   // Set row and column input to default value (in case it changed because of size limitations)
   dom.rowEntry.value = state.pages[0].rowCount;
@@ -175,7 +185,7 @@ dom.canvasContainer.addEventListener("scroll", () => {
 // When row input is changed, validate input and update table
 dom.rowEntry.addEventListener("change", () => {
   const p = state.pages[state.currentPage-1];
-  const rows = clamp(dom.rowEntry.value, 1, p.height);
+  const rows = clamp(dom.rowEntry.value, 1, constants.maxRows);
 
   dom.rowEntry.value = rows;
   p.rowCount = rows;
@@ -186,7 +196,7 @@ dom.rowEntry.addEventListener("change", () => {
 // When column input is changed, validate input and update table
 dom.columnEntry.addEventListener("change", () => {
   const p = state.pages[state.currentPage-1];
-  const cols = clamp(dom.columnEntry.value, 1, p.width);
+  const cols = clamp(dom.columnEntry.value, 1, constants.maxCols);
 
   dom.columnEntry.value = cols;
 
@@ -196,7 +206,7 @@ dom.columnEntry.addEventListener("change", () => {
   } else {
     // Add columns
     while (p.columnWidths.length !== cols) {
-      p.columnWidths.push(35);
+      p.columnWidths.push(constants.defaultColSize);
     }
   }
 
@@ -206,7 +216,7 @@ dom.columnEntry.addEventListener("change", () => {
 // Show/Hide Text boxes on toggle
 dom.toggleTextBoxesButton.addEventListener("click", () => {
   state.textBoxesShown = !state.textBoxesShown;
-  dom.wordCanvas.style.display = state.textBoxesShown ? "block" : "none";
 
+  dom.wordCanvas.style.display = state.textBoxesShown ? "block" : "none";
   dom.toggleTextBoxesButton.innerText = (state.textBoxesShown ? "Hide" : "Show") + " Textboxes";
 });
