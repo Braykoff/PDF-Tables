@@ -71,16 +71,24 @@ body {
   overflow: scroll;
 }
 
-#canvasContainer canvas {
+#canvasContainer .page {
   display: block;
   margin: 10px auto;
 }
 
-#canvasContainer #tableContainer {
+#canvasContainer .overlay {
   position: absolute;
-  z-index: 2;
   top: 10px;
   left: 50%;
   transform: translateX(-50%);
   overflow: hidden;
+}
+
+#canvasContainer #wordCanvas {
+  z-index: 2;
+  display: none;
+}
+
+#canvasContainer #tableContainer {
+  z-index: 3;
 }

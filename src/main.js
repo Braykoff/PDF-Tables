@@ -8,6 +8,7 @@ const dom = {
   applyAllButton: document.getElementById("applyToAllAction"),
   extractButton: document.getElementById("extractAction"),
   canvasContainer: document.getElementById("canvasContainer"),
+  wordCanvas: document.getElementById("wordCanvas"),
   tableContainer: document.getElementById("tableContainer")
 };
 
@@ -15,7 +16,7 @@ const dom = {
 var pdf = undefined;
 var currentPage = -1;
 
-// Contains idx, width, height, canvas, distToTop, columnWidth, rowCount, rowHeight, tableCoords
+// Contains idx, width, height, canvas, distToTop, columnWidth, rowCount, rowHeight, tableCoords, words
 var pages = []
 
 // File input changed, load new file
@@ -59,6 +60,7 @@ dom.fileInput.addEventListener("change", async () => {
   // Load each page
   for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
     const [canvas, width, height] = await renderPDFOntoCanvas(pdf, pageNum);
+    canvas.classList.add("page");
 
     // Keep track of each page
     maxWidth = Math.max(maxWidth, width);
@@ -76,10 +78,11 @@ dom.fileInput.addEventListener("change", async () => {
       height: height, // Height of page (px)
       canvas: canvas, // Canvas element
       distToTop: totalHeight, // Distance to top of tableContainer (px)
-      columnWidths: Array(colCount).fill(MutationObserver.min(35, Math.floor(width/colCount))), // Width of each column (px)
+      columnWidths: Array(colCount).fill(Math.min(35, Math.floor(width/colCount))), // Width of each column (px)
       rowCount: rowCount, // Number of rows
       rowHeight: Math.min(20, Math.floor(height/rowCount)), // All rows are the same height (px)
-      tableCoords: [0, 0] // x, y coords of table from top left corner (px)
+      tableCoords: [0, 0], // x, y coords of table from top left corner (px)
+      words: []
     });
 
     // TODO rerender table here
@@ -88,6 +91,11 @@ dom.fileInput.addEventListener("change", async () => {
   // Overlay table container
   dom.tableContainer.style.width = `${maxWidth}px`;
   dom.tableContainer.style.height = `${Math.max(1, totalHeight - 10)}px`;
+
+  // Overlay word canvas
+  dom.wordCanvas.style.width = `${maxWidth}px`;
+  dom.wordCanvas.style.height = `${Math.max(1, totalHeight - 10)}px`;
+  dom.wordCanvas.style.display = "block";
 
   // Set row and column input to default value (in case it changed because of size limitations)
   dom.rowEntry.value = pages[0].rowCount;
