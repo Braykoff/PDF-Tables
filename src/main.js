@@ -69,7 +69,7 @@ dom.fileInput.addEventListener("change", async () => {
     const textContent = (await page.getTextContent()).items;
     let words = [];
 
-    for (const word in textContent) {
+    for (const word of textContent) {
       // Check not blank
       if (!isStringEmpty(word.str)) {
         const pos = getAffineTransformationCenter(word.transformation, word.width);
@@ -87,7 +87,7 @@ dom.fileInput.addEventListener("change", async () => {
     let rowCount = Math.min(parseInt(dom.rowEntry.value), height);
 
     pages.push({
-      idx: pdf.numPages, // Page index
+      idx: pageNum, // Page index
       width: width, // Width of page (px)
       height: height, // Height of page (px)
       canvas: canvas, // Canvas element
@@ -124,8 +124,8 @@ dom.fileInput.addEventListener("change", async () => {
   wordCtx.reset();
   wordCtx.fillStyle = "red";
 
-  for (const p in pages) {
-    for (const w in words) {
+  for (const p of pages) {
+    for (const w of p.words) {
       wordCtx.beginPath();
       wordCtx.arc(
         w.x + maxWidth - p.width, 
