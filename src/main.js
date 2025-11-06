@@ -21,12 +21,13 @@ var pages = []
 
 // File input changed, load new file
 dom.fileInput.addEventListener("change", async () => {
-  if (dom.fileInput.files.length == 0) {
+  if (dom.fileInput.files.length === 0) {
     // No file selected
     console.warn("Aborting because no files selected");
     return;
   }
 
+  const start = Date.now();
   const rawFile = dom.fileInput.files[0]
 
   // Display file name
@@ -59,14 +60,27 @@ dom.fileInput.addEventListener("change", async () => {
 
   // Load each page
   for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-    const [canvas, width, height] = await renderPDFOntoCanvas(pdf, pageNum);
+    // Draw page
+    const [canvas, page, width, height] = await renderPDFOntoCanvas(pdf, pageNum);
     canvas.classList.add("page");
-
-    // Keep track of each page
-    maxWidth = Math.max(maxWidth, width);
-    totalHeight += height + 10; // 10 px padding
-
     dom.canvasContainer.appendChild(canvas);
+
+    // Get words on page
+    const textContent = (await page.getTextContent()).items;
+    let words = [];
+
+    for (const word in textContent) {
+      // Check not blank
+      if (!isStringEmpty(word.str)) {
+        const pos = getAffineTransformationCenter(word.transformation, word.width);
+
+        words.push({
+          content: word.str,
+          x: pos[0],
+          y: pos[1]
+        });
+      }
+    }
 
     // Max number of cols = width, rows = height because min width/height is 1px
     let colCount = Math.min(parseInt(dom.columnEntry.value), width);
@@ -78,19 +92,23 @@ dom.fileInput.addEventListener("change", async () => {
       height: height, // Height of page (px)
       canvas: canvas, // Canvas element
       distToTop: totalHeight, // Distance to top of tableContainer (px)
-      columnWidths: Array(colCount).fill(Math.min(35, Math.floor(width/colCount))), // Width of each column (px)
+      columnWidths: Array(colCount).fill(Math.min(35, Math.floor(width / colCount))), // Width of each column (px)
       rowCount: rowCount, // Number of rows
-      rowHeight: Math.min(20, Math.floor(height/rowCount)), // All rows are the same height (px)
+      rowHeight: Math.min(20, Math.floor(height / rowCount)), // All rows are the same height (px)
       tableCoords: [0, 0], // x, y coords of table from top left corner (px)
-      words: []
+      words: words
     });
 
-    // TODO rerender table here
+    // Keep track of each page position
+    maxWidth = Math.max(maxWidth, width);
+    totalHeight += height + 10; // 10 px padding
   }
 
   // Overlay table container
   dom.tableContainer.style.width = `${maxWidth}px`;
   dom.tableContainer.style.height = `${Math.max(1, totalHeight - 10)}px`;
+
+  // TODO rerender tables
 
   // Overlay word canvas
   dom.wordCanvas.style.width = `${maxWidth}px`;
@@ -101,7 +119,27 @@ dom.fileInput.addEventListener("change", async () => {
   dom.rowEntry.value = pages[0].rowCount;
   dom.columnEntry.value = pages[0].columnWidths.length;
 
-  console.log(`Loaded ${rawFile.name} with ${pages.length} pages`);
+  // Now that the word canvas size is known, draw words
+  const wordCtx = dom.wordCanvas.getContext("2d");
+  wordCtx.reset();
+  wordCtx.fillStyle = "red";
+
+  for (const p in pages) {
+    for (const w in words) {
+      wordCtx.beginPath();
+      wordCtx.arc(
+        w.x + maxWidth - p.width, 
+        p.distToTop + p.height - w.y, 
+        5, 
+        0, 
+        2 * Math.PI
+    );
+      wordCtx.fill();
+    }
+  }
+
+  const elapsed = (Date.now() - start) / 1000; // seconds
+  console.log(`Loaded ${rawFile.name} with ${pages.length} pages in ${elapsed.toFixed(3)} seconds`);
 });
 
 // On scroll, update page number

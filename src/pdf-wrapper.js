@@ -27,7 +27,7 @@ async function loadPDFFromFile(file) {
  * @param {PDFDocumentProxy} pdf PDF object returned from PDF.JS.
  * @param {int} pageNum Page number (starting at 1).
  * @param {float} scale Viewport scaling (default 1.0).
- * @returns Created canvas, PDF width, PDF height.
+ * @returns Created canvas, PDF page, PDF width, PDF height.
  */
 async function renderPDFOntoCanvas(pdf, pageNum, scale=1.0) {
   const page = await pdf.getPage(pageNum);
@@ -40,7 +40,7 @@ async function renderPDFOntoCanvas(pdf, pageNum, scale=1.0) {
   canvas.setAttribute("data-page", pageNum);
 
   await page.render({ canvasContext: ctx, viewport }).promise;
-  return [canvas, viewport.width, viewport.height];
+  return [canvas, page, viewport.width, viewport.height];
 }
 
 // As soon as loaded, try setting the global worker source
