@@ -1,3 +1,5 @@
+"use-strict";
+
 // HTML elements
 const dom = {
   fileInput: document.getElementById("fileInput"),
@@ -5,6 +7,7 @@ const dom = {
   pageCounter: document.getElementById("pageCount"),
   columnEntry: document.getElementById("columnEntry"),
   rowEntry: document.getElementById("rowEntry"),
+  toggleTextBoxesButton: document.getElementById("showTextboxesAction"),
   applyAllButton: document.getElementById("applyToAllAction"),
   extractButton: document.getElementById("extractAction"),
   canvasContainer: document.getElementById("canvasContainer"),
@@ -12,12 +15,12 @@ const dom = {
   tableContainer: document.getElementById("tableContainer")
 };
 
-// PDF File object
-var pdf = undefined;
-var currentPage = -1;
-
-// Contains idx, width, height, canvas, distToTop, columnWidth, rowCount, rowHeight, tableCoords, words
-var pages = []
+// Current app state
+const state = {
+  currentPage: -1,
+  pages: [],
+  textBoxesShown: false
+};
 
 // File input changed, load new file
 dom.fileInput.addEventListener("change", async () => {
@@ -36,10 +39,10 @@ dom.fileInput.addEventListener("change", async () => {
   document.title = "PDFTables - " + rawFile.name;
 
   // Reset canvas container
-  dom.canvasContainer.style.display = "block";
   dom.canvasContainer.scrollTop = 0;
+  dom.canvasContainer.style.display = "none";
 
-  for (const page of pages) {
+  for (const page of state.pages) {
     page.canvas.remove();
   }
 
@@ -47,16 +50,16 @@ dom.fileInput.addEventListener("change", async () => {
     dom.tableContainer.firstChild.remove();
   }
 
-  pages = []
+  state.pages = []
 
   // Load PDF
-  pdf = await loadPDFFromFile(rawFile);
+  let pdf = await loadPDFFromFile(rawFile);
+  state.currentPage = 1;
 
-  currentPage = 1;
   dom.pageCounter.innerText = `Page 1/${pdf.numPages}`;
 
-  maxWidth = 1;
-  totalHeight = 0;
+  let maxWidth = 1;
+  let totalHeight = 0;
 
   // Load each page
   for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
@@ -72,7 +75,8 @@ dom.fileInput.addEventListener("change", async () => {
     for (const word of textContent) {
       // Check not blank
       if (!isStringEmpty(word.str)) {
-        const pos = getAffineTransformationCenter(word.transformation, word.width);
+        // Pos relative to top left corner
+        const pos = getTextCenter(word, height)
 
         words.push({
           content: word.str,
@@ -86,7 +90,7 @@ dom.fileInput.addEventListener("change", async () => {
     let colCount = Math.min(parseInt(dom.columnEntry.value), width);
     let rowCount = Math.min(parseInt(dom.rowEntry.value), height);
 
-    pages.push({
+    state.pages.push({
       idx: pageNum, // Page index
       width: width, // Width of page (px)
       height: height, // Height of page (px)
@@ -104,6 +108,9 @@ dom.fileInput.addEventListener("change", async () => {
     totalHeight += height + 10; // 10 px padding
   }
 
+  // Now show PDF
+  dom.canvasContainer.style.display = "block";
+
   // Overlay table container
   dom.tableContainer.style.width = `${maxWidth}px`;
   dom.tableContainer.style.height = `${Math.max(1, totalHeight - 10)}px`;
@@ -113,33 +120,29 @@ dom.fileInput.addEventListener("change", async () => {
   // Overlay word canvas
   dom.wordCanvas.style.width = `${maxWidth}px`;
   dom.wordCanvas.style.height = `${Math.max(1, totalHeight - 10)}px`;
-  dom.wordCanvas.style.display = "block";
+
+  dom.wordCanvas.width = maxWidth;
+  dom.wordCanvas.height = Math.max(1, totalHeight - 10);
 
   // Set row and column input to default value (in case it changed because of size limitations)
-  dom.rowEntry.value = pages[0].rowCount;
-  dom.columnEntry.value = pages[0].columnWidths.length;
+  dom.rowEntry.value = state.pages[0].rowCount;
+  dom.columnEntry.value = state.pages[0].columnWidths.length;
 
   // Now that the word canvas size is known, draw words
   const wordCtx = dom.wordCanvas.getContext("2d");
   wordCtx.reset();
   wordCtx.fillStyle = "red";
 
-  for (const p of pages) {
+  for (const p of state.pages) {
     for (const w of p.words) {
       wordCtx.beginPath();
-      wordCtx.arc(
-        w.x + maxWidth - p.width, 
-        p.distToTop + p.height - w.y, 
-        5, 
-        0, 
-        2 * Math.PI
-    );
+      wordCtx.arc(w.x + maxWidth - p.width, p.distToTop + w.y, 2, 0, 2 * Math.PI);
       wordCtx.fill();
     }
   }
 
   const elapsed = (Date.now() - start) / 1000; // seconds
-  console.log(`Loaded ${rawFile.name} with ${pages.length} pages in ${elapsed.toFixed(3)} seconds`);
+  console.log(`Loaded ${rawFile.name} with ${state.pages.length} pages in ${elapsed.toFixed(3)} seconds`);
 });
 
 // On scroll, update page number
@@ -148,7 +151,7 @@ dom.canvasContainer.addEventListener("scroll", () => {
   let closestDist = Infinity;
 
   // Find closest canvas to viewport center
-  for (const page of pages) {
+  for (const page of state.pages) {
     const rect = page.canvas.getBoundingClientRect();
     const dist = Math.abs((rect.top + rect.bottom) / 2 - window.innerHeight / 2);
 
@@ -160,8 +163,8 @@ dom.canvasContainer.addEventListener("scroll", () => {
 
   // Use closest page as current page
   if (closestPage) {
-    currentPage = closestPage.idx;
-    dom.pageCounter.innerText = `Page ${currentPage}/${pages.length}`;
+    state.currentPage = closestPage.idx;
+    dom.pageCounter.innerText = `Page ${state.currentPage}/${state.pages.length}`;
 
     // Update table dimension input
     dom.rowEntry.value = closestPage.rowCount;
@@ -171,21 +174,21 @@ dom.canvasContainer.addEventListener("scroll", () => {
 
 // When row input is changed, validate input and update table
 dom.rowEntry.addEventListener("change", () => {
-  const p = pages[currentPage];
-  const rows = Math.max(Math.min(dom.rowEntry.value, p.height), 1);
+  const p = state.pages[state.currentPage-1];
+  const rows = clamp(dom.rowEntry.value, 1, p.height);
 
   dom.rowEntry.value = rows;
   p.rowCount = rows;
 
   // TODO rerender table here
-})
+});
 
 // When column input is changed, validate input and update table
 dom.columnEntry.addEventListener("change", () => {
-  const p = pages[currentPage];
-  const cols = Math.max(Math.min(dom.columnEntry.value, p.width), 1);
+  const p = state.pages[state.currentPage-1];
+  const cols = clamp(dom.columnEntry.value, 1, p.width);
 
-  dom.columnEntry.value = rows;
+  dom.columnEntry.value = cols;
 
   if (cols < p.columnWidths.length) {
     // Remove columns
@@ -198,4 +201,12 @@ dom.columnEntry.addEventListener("change", () => {
   }
 
   // TODO rerender table here
-})
+});
+
+// Show/Hide Text boxes on toggle
+dom.toggleTextBoxesButton.addEventListener("click", () => {
+  state.textBoxesShown = !state.textBoxesShown;
+  dom.wordCanvas.style.display = state.textBoxesShown ? "block" : "none";
+
+  dom.toggleTextBoxesButton.innerText = (state.textBoxesShown ? "Hide" : "Show") + " Textboxes";
+});

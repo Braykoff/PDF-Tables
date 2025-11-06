@@ -8,20 +8,12 @@ function isStringEmpty(string) {
 }
 
 /**
- * Approximates the center of the affine transformation.
- * @param {Array} transform Affine transformation (a, b, c, d, e, f).
- * @param {float} width Width of the object
- * @returns The [x, y] center of the affine transformation.
+ * Clamps a value between two others.
+ * @param {*} val The value to clamp.
+ * @param {*} min The minimum value.
+ * @param {*} max The maximum value.
+ * @returns The clamped value.
  */
-function getAffineTransformationCenter(transform, width) {
-  const a = transform[0], b = transform[1],
-    c = transform[2], d = transform[3],
-    e = transform[4], f = transform[5];
-
-  const h = Math.sqrt(c ** 2 + d ** 2);
-
-  return [
-    a * (width / 2) + c * (h / 2) + e,
-    b * (width / 2) + d * (h / 2) + f
-  ];
+function clamp(val, min, max) {
+  return Math.min(Math.max(val, min), max);
 }

@@ -43,5 +43,21 @@ async function renderPDFOntoCanvas(pdf, pageNum, scale=1.0) {
   return [canvas, page, viewport.width, viewport.height];
 }
 
+/**
+ * Finds the center coordinates of a word and converts to a top-left relative coordinate frame.
+ * @param {Dict} word A word returned by page.getTextContent().items.
+ * @param {*} pageHeight The height of the page.
+ * @returns The x, y coords of the word's center, relative to the top-left corner of the page.
+ */
+function getTextCenter(word, pageHeight) {
+  const [a, b, c, d, e, f] = word.transform;
+  const height = Math.sqrt(c*c + d*d); // word.height is usually wrong
+
+  return [
+    e + (word.width / 2),
+    pageHeight - (f + (height / 2))
+  ];
+}
+
 // As soon as loaded, try setting the global worker source
 setGlobalWorkerSource();
