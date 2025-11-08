@@ -89,31 +89,6 @@ body {
   display: none;
 }
 
-#canvasContainer #tableContainer {
+#canvasContainer #tableCanvas {
   z-index: 3;
-}
-
-/* TABLES */
-#tableContainer .table {
-  position: absolute;
-  cursor: all-scroll;
-}
-
-#tableContainer .table .verticalLine {
-  position: absolute;
-  background-color: navy;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  cursor: col-resize;
-  transform: translateX(-50%);
-}
-
-#tableContainer .table .horizontalLine {
-  position: absolute;
-  background-color: navy;
-  left: 0;
-  right: 0;
-  height: 3px;
-  transform: translateY(-50%);
 }

@@ -12,7 +12,7 @@ const dom = {
   extractButton: document.getElementById("extractAction"),
   canvasContainer: document.getElementById("canvasContainer"),
   wordCanvas: document.getElementById("wordCanvas"),
-  tableContainer: document.getElementById("tableContainer")
+  tableCanvas: document.getElementById("tableCanvas")
 };
 
 // Constants
@@ -20,8 +20,8 @@ const constants = {
   pageMargin: 10, // Margin between pages, px
   maxRows: 200, // Max number of rows
   maxCols: 50, // Max numbers of columns
-  defaultRowSize: 20, // Default row size, px
-  defaultColSize: 35 // Default column size, px
+  defaultRowSize: 15, // Default row size, px
+  defaultColSize: 25 // Default column size, px
 }
 
 // Current app state
@@ -53,10 +53,6 @@ dom.fileInput.addEventListener("change", async () => {
 
   for (const page of state.pages) {
     page.canvas.remove();
-  }
-
-  while (dom.tableContainer.firstChild) {
-    dom.tableContainer.firstChild.remove();
   }
 
   state.pages = []
@@ -104,11 +100,14 @@ dom.fileInput.addEventListener("change", async () => {
       width: width, // Width of page (px)
       height: height, // Height of page (px)
       canvas: canvas, // Canvas element
-      distToTop: totalHeight, // Distance to top of tableContainer (px)
+      distToTop: totalHeight, // Distance to top of container (px)
+
       columnWidths: Array(colCount).fill(constants.defaultColSize), // Width of each column (px)
+      tableWidth: constants.defaultColSize * colCount, // Total width of table (px)
       rowCount: rowCount, // Number of rows
       rowHeight: constants.defaultRowSize, // All rows are the same height (px)
-      tableCoords: [0, 0], // x, y coords of table from top left corner (px)
+      tableCoords: [5, 5], // x, y coords of table from top left corner (px)
+
       words: words, // List of words and x, y coords
       dragHandler: null // DraggableTable object
     });
@@ -121,32 +120,36 @@ dom.fileInput.addEventListener("change", async () => {
   // Now show PDF
   dom.canvasContainer.style.display = "block";
 
-  // Overlay table container
-  dom.tableContainer.style.width = `${maxWidth}px`;
-  dom.tableContainer.style.height = `${Math.max(1, totalHeight - constants.pageMargin)}px`;
-
-  // TODO rerender tables
-
-  // Overlay word canvas
-  dom.wordCanvas.style.width = `${maxWidth}px`;
-  dom.wordCanvas.style.height = `${Math.max(1, totalHeight - constants.pageMargin)}px`;
+  // Init canvas sizes
+  for (const canvas of [dom.tableCanvas, dom.wordCanvas]) {
+    canvas.style.width = `${maxWidth}px`;
+    canvas.style.height = `${Math.max(1, totalHeight - constants.pageMargin)}px`;
+  }
 
   dom.wordCanvas.width = maxWidth;
   dom.wordCanvas.height = Math.max(1, totalHeight - constants.pageMargin);
 
-  // Set row and column input to default value (in case it changed because of size limitations)
-  dom.rowEntry.value = state.pages[0].rowCount;
-  dom.columnEntry.value = state.pages[0].columnWidths.length;
+  dom.tableCanvas.width = maxWidth * tableStyle.scaleFactor;
+  dom.tableCanvas.height = Math.max(1, totalHeight - constants.pageMargin) * tableStyle.scaleFactor;
 
-  // Now that the word canvas size is known, draw words
+  // Prepare table canvas for rendering
+  const tableCtx = dom.tableCanvas.getContext("2d");
+  tableCtx.reset();
+
+  // Prepare word canvas for rendering
   const wordCtx = dom.wordCanvas.getContext("2d");
   wordCtx.reset();
   wordCtx.fillStyle = "red";
 
+  // Render tables, words
   for (const p of state.pages) {
+    // Render table on table canvas
+    p.dragHandler = new DraggableTable(p, tableCtx, maxWidth);
+
+    // Render each word point on word canvas
     for (const w of p.words) {
       wordCtx.beginPath();
-      wordCtx.arc(w.x + maxWidth - p.width, p.distToTop + w.y, 2, 0, 2 * Math.PI);
+      wordCtx.arc(w.x + ((maxWidth - p.width) / 2.0), p.distToTop + w.y, 2, 0, 2 * Math.PI);
       wordCtx.fill();
     }
   }
@@ -184,7 +187,7 @@ dom.canvasContainer.addEventListener("scroll", () => {
 
 // When row input is changed, validate input and update table
 dom.rowEntry.addEventListener("change", () => {
-  const p = state.pages[state.currentPage-1];
+  const p = state.pages[state.currentPage - 1];
   const rows = clamp(dom.rowEntry.value, 1, constants.maxRows);
 
   dom.rowEntry.value = rows;
@@ -195,7 +198,7 @@ dom.rowEntry.addEventListener("change", () => {
 
 // When column input is changed, validate input and update table
 dom.columnEntry.addEventListener("change", () => {
-  const p = state.pages[state.currentPage-1];
+  const p = state.pages[state.currentPage - 1];
   const cols = clamp(dom.columnEntry.value, 1, constants.maxCols);
 
   dom.columnEntry.value = cols;
