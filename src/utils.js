@@ -17,3 +17,18 @@ function isStringEmpty(string) {
 function clamp(val, min, max) {
   return Math.min(Math.max(val, min), max);
 }
+
+/**
+ * Creates a HTML Canvas element.
+ * @param {float} width The width of the canvas, px.
+ * @param {float} height The height of the canvas, px.
+ * @param {float} scale The amount to scale the internal dimensions (default 1.0)
+ * @returns The canvas, and the canvas's 2d context.
+ */
+function createCanvas(width, height, scale=1.0) {
+  const canvas = document.createElement("canvas");
+  canvas.width = width * scale;
+  canvas.height = height * scale;
+  
+  return [canvas, canvas.getContext("2d")];
+}

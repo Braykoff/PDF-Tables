@@ -10,9 +10,7 @@ const dom = {
   toggleTextBoxesButton: document.getElementById("showTextboxesAction"),
   applyAllButton: document.getElementById("applyToAllAction"),
   extractButton: document.getElementById("extractAction"),
-  canvasContainer: document.getElementById("canvasContainer"),
-  wordCanvas: document.getElementById("wordCanvas"),
-  tableCanvas: document.getElementById("tableCanvas")
+  pageContainer: document.getElementById("pageContainer")
 };
 
 // Constants
@@ -31,6 +29,9 @@ const state = {
   textBoxesShown: false
 };
 
+// Prevent right click everywhere
+document.body.addEventListener("contextmenu", (evt) => evt.preventDefault() );
+
 // File input changed, load new file
 dom.fileInput.addEventListener("change", async () => {
   if (dom.fileInput.files.length === 0) {
@@ -48,11 +49,12 @@ dom.fileInput.addEventListener("change", async () => {
   document.title = "PDFTables - " + rawFile.name;
 
   // Reset canvas container
-  dom.canvasContainer.scrollTop = 0;
-  dom.canvasContainer.style.display = "none";
+  dom.pageContainer.scrollTop = 0;
+  dom.pageContainer.style.visibility = "hidden";
 
   for (const page of state.pages) {
-    page.canvas.remove();
+    page.tableCanvas.detach();
+    page.canvasContainer.remove();
   }
 
   state.pages = []
@@ -69,13 +71,26 @@ dom.fileInput.addEventListener("change", async () => {
   // Load each page
   for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
     // Draw page
-    const [canvas, page, width, height] = await renderPDFOntoCanvas(pdf, pageNum);
-    canvas.classList.add("page");
-    dom.canvasContainer.appendChild(canvas);
+    const canvasContainer = document.createElement("div");
+    canvasContainer.classList.add("page");
+    dom.pageContainer.appendChild(canvasContainer);
 
-    // Get words on page
+    const [canvas, page, width, height] = await renderPDFOntoCanvas(pdf, pageNum);
+    canvasContainer.appendChild(canvas);
+
+    canvasContainer.style.width = `${width}px`;
+    canvasContainer.style.height = `${height}px`;
+
+    // Get and render words on page
     const textContent = (await page.getTextContent()).items;
     let words = [];
+
+    const [wordCanvas, wordCtx] = createCanvas(width, height);
+    wordCanvas.classList.add("wordCanvas");
+    canvasContainer.appendChild(wordCanvas);
+    wordCtx.fillStyle = "red";
+
+    wordCanvas.style.visibility = state.textBoxesShown ? "visible" : "hidden";
 
     for (const word of textContent) {
       // Check not blank
@@ -88,6 +103,11 @@ dom.fileInput.addEventListener("change", async () => {
           x: pos[0],
           y: pos[1]
         });
+
+        // Render on canvas
+        wordCtx.beginPath();
+        wordCtx.arc(pos[0], pos[1], 2, 0, 2 * Math.PI);
+        wordCtx.fill();
       }
     }
 
@@ -99,8 +119,7 @@ dom.fileInput.addEventListener("change", async () => {
       idx: pageNum, // Page index
       width: width, // Width of page (px)
       height: height, // Height of page (px)
-      canvas: canvas, // Canvas element
-      distToTop: totalHeight, // Distance to top of container (px)
+      words: words, // List of words and x, y coords
 
       columnWidths: Array(colCount).fill(constants.defaultColSize), // Width of each column (px)
       tableWidth: constants.defaultColSize * colCount, // Total width of table (px)
@@ -108,9 +127,14 @@ dom.fileInput.addEventListener("change", async () => {
       rowHeight: constants.defaultRowSize, // All rows are the same height (px)
       tableCoords: [5, 5], // x, y coords of table from top left corner (px)
 
-      words: words, // List of words and x, y coords
-      dragHandler: null // DraggableTable object
+      canvasContainer: canvasContainer,
+      canvas: canvas, // Canvas element
+      wordCanvas: wordCanvas, // Word canvas object
+      tableCanvas: null // DraggableTable object
     });
+
+    // Create table canvas
+    state.pages[pageNum - 1].tableCanvas = new DraggableTable(state.pages[pageNum - 1]);
 
     // Keep track of each page position
     maxWidth = Math.max(maxWidth, width);
@@ -118,48 +142,14 @@ dom.fileInput.addEventListener("change", async () => {
   }
 
   // Now show PDF
-  dom.canvasContainer.style.display = "block";
-
-  // Init canvas sizes
-  for (const canvas of [dom.tableCanvas, dom.wordCanvas]) {
-    canvas.style.width = `${maxWidth}px`;
-    canvas.style.height = `${Math.max(1, totalHeight - constants.pageMargin)}px`;
-  }
-
-  dom.wordCanvas.width = maxWidth;
-  dom.wordCanvas.height = Math.max(1, totalHeight - constants.pageMargin);
-
-  dom.tableCanvas.width = maxWidth * tableStyle.scaleFactor;
-  dom.tableCanvas.height = Math.max(1, totalHeight - constants.pageMargin) * tableStyle.scaleFactor;
-
-  // Prepare table canvas for rendering
-  const tableCtx = dom.tableCanvas.getContext("2d");
-  tableCtx.reset();
-
-  // Prepare word canvas for rendering
-  const wordCtx = dom.wordCanvas.getContext("2d");
-  wordCtx.reset();
-  wordCtx.fillStyle = "red";
-
-  // Render tables, words
-  for (const p of state.pages) {
-    // Render table on table canvas
-    p.dragHandler = new DraggableTable(p, tableCtx, maxWidth);
-
-    // Render each word point on word canvas
-    for (const w of p.words) {
-      wordCtx.beginPath();
-      wordCtx.arc(w.x + ((maxWidth - p.width) / 2.0), p.distToTop + w.y, 2, 0, 2 * Math.PI);
-      wordCtx.fill();
-    }
-  }
+  dom.pageContainer.style.visibility = "visible";
 
   const elapsed = (Date.now() - start) / 1000; // seconds
   console.log(`Loaded ${rawFile.name} with ${state.pages.length} pages in ${elapsed.toFixed(3)} seconds`);
 });
 
 // On scroll, update page number
-dom.canvasContainer.addEventListener("scroll", () => {
+dom.pageContainer.addEventListener("scroll", () => {
   let closestPage = null;
   let closestDist = Infinity;
 
@@ -220,6 +210,9 @@ dom.columnEntry.addEventListener("change", () => {
 dom.toggleTextBoxesButton.addEventListener("click", () => {
   state.textBoxesShown = !state.textBoxesShown;
 
-  dom.wordCanvas.style.display = state.textBoxesShown ? "block" : "none";
   dom.toggleTextBoxesButton.innerText = (state.textBoxesShown ? "Hide" : "Show") + " Textboxes";
+
+  for (const p of state.pages) {
+    p.wordCanvas.style.visibility = state.textBoxesShown ? "visible" : "hidden";
+  }
 });
