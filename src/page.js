@@ -139,6 +139,36 @@ export class Page {
   }
 
   /**
+   * Clamps and sets the position of this table to a new position relative to the top left corner
+   * of the page.
+   * @param {float} x The x position of the table.
+   * @param {float} y The y position of the table.
+   */
+  setPosition(x, y) {
+    this.#tableCoords[0] = x;
+    this.#tableCoords[1] = y;
+  }
+
+  /**
+   * Clamps and sets the width of a column of this table.
+   * @param {int} col The index of the column to set.
+   * @param {float} width The width of the column, px.
+   */
+  setColumnWidth(col, width) {
+    let delta = width - this.#columnWidths[col];
+    this.#tableWidth += delta;
+    this.#columnWidths[col] = width;
+  }
+
+  /**
+   * Clamps and sets the height of all the rows in this table.
+   * @param {float} height The height of a single row, px.
+   */
+  setRowHeight(height) {
+    this.#rowHeight = height;
+  }
+
+  /**
    * Detaches all event listeners, removes all elements.
    */
   destroy() {

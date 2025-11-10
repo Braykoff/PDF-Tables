@@ -43,7 +43,7 @@ export class DraggableTable {
   #activeDim = DragDim.NONE;
   #activeIdx = -1; // index of the object being dragged
   #state = DragState.NONE;
-  #dragStart = undefined; // Coordinate of mouse at beginning of drag, relative to page.
+  #lastMousePose = undefined; // Coordinate of mouse relative to page at last move while dragging.
 
   /**
    * Creates a DraggableTable object.
@@ -173,14 +173,37 @@ export class DraggableTable {
 
       if (this.#state === DragState.DRAGGING) {
         // We are actively being dragged
+        const deltas = {x: pos.x - this.#lastMousePose.x, y: pos.y - this.#lastMousePose.y};
+
         // TODO validate position
         if (this.#activeDim === DragDim.COL) {
           // A column is being dragged left/right
+          if (this.#activeIdx === 0) {
+            // The first border is being dragged left, need to adjust the table's x position
+            this.#page.setPosition(this.#page.tableX + deltas.x, this.#page.tableY);
+            this.#page.setColumnWidth(0, this.#page.getColWidth(0) - deltas.x);
+          } else {
+            // Simply add to its width
+            let idx = Math.max(0, this.#activeIdx-1);
+            this.#page.setColumnWidth(idx, this.#page.getColWidth(idx) + deltas.x);
+          }
         } else if (this.#activeDim === DragDim.ROW) {
           // A row is being dragged up/down
+          if (this.#activeIdx === 0) {
+            // The top border is being dragged up, need to adjust the table's y position
+            this.#page.setPosition(this.#page.tableX, this.#page.tableY + deltas.y);
+            this.#page.setRowHeight(this.#page.rowHeight - (deltas.y / this.#page.rowCount));
+          } else {
+            // The bottom border is being dragged down
+            this.#page.setRowHeight(this.#page.rowHeight + (deltas.y / this.#page.rowCount));
+          }
         } else {
           // The whole table is being dragged
+          this.#page.setPosition(this.#page.tableX + deltas.x, this.#page.tableY + deltas.y);
         }
+
+        this.#lastMousePose = pos;
+        this.redraw();
       } else {
         // Check hovering?
         const hover = this.#getIsHovering(pos);
@@ -203,7 +226,7 @@ export class DraggableTable {
   #mouseDown(evt) {
     if (this.#state === DragState.HOVER) {
       // Hovering, switch to dragging
-      this.#dragStart = this.#getMousePosOnPage(evt);
+      this.#lastMousePose = this.#getMousePosOnPage(evt);
       this.#setStateAndLazyRedraw(DragState.DRAGGING, this.#activeDim, this.#activeIdx);
     }
   }
