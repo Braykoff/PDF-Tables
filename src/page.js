@@ -1,7 +1,7 @@
-import { DEFAULT_COL_SIZE, DEFAULT_ROW_SIZE, TEXT_BOX_COLOR, TEXT_BOX_RADIUS } from "./constants.js";
+import { DEFAULT_COL_SIZE, DEFAULT_COLS, DEFAULT_ROW_SIZE, DEFAULT_ROWS, MAX_COLS, MAX_ROWS, MIN_COL_SIZE, MIN_ROW_SIZE, TEXT_BOX_COLOR, TEXT_BOX_RADIUS } from "./constants.js";
 import { DraggableTable } from "./draggable-table.js";
 import { getTextCenter, renderPDFOntoCanvas } from "./pdf-wrapper.js";
-import { isStringEmpty } from "./utils.js";
+import { clamp, isStringEmpty } from "./utils.js";
 
 /**
  * Represents a single PDF Page, with tables and text box annotations.
@@ -30,18 +30,16 @@ export class Page {
    * @param {float} width The width of this page, px.
    * @param {float} height The height of this page, px.
    * @param {*} textContent A list of text boxes on this page (from page.getTextContent().items).
-   * @param {int} colCount The number of columns on this page.
-   * @param {int} rowCount The number of rows on this page.
    */
-  constructor(pageContainer, pageNum, currentPageSupplier, pdfCanvas, width, height, textContent, colCount, rowCount) {
+  constructor(pageContainer, pageNum, currentPageSupplier, pdfCanvas, width, height, textContent) {
     // Init default values
     this.#idx = pageNum;
     this.#width = width;
     this.#height = height;
 
-    this.#columnWidths = Array(colCount).fill(DEFAULT_COL_SIZE);
-    this.#tableWidth = colCount * DEFAULT_COL_SIZE;
-    this.#rowCount = rowCount;
+    this.#columnWidths = Array(DEFAULT_COLS).fill(DEFAULT_COL_SIZE);
+    this.#tableWidth = DEFAULT_COLS * DEFAULT_COL_SIZE;
+    this.#rowCount = DEFAULT_ROWS;
     this.#rowHeight = DEFAULT_ROW_SIZE;
     this.#tableCoords = [5, 5];
     this.#currentPageSupplier = currentPageSupplier;
@@ -89,6 +87,12 @@ export class Page {
       }
     }
 
+    // Sort word list left-to-right, top-to-bottom
+    this.#words.sort((a, b) => {
+      if (a.y !== b.y) return a.y - b.y;
+      return a.x - b.x;
+    });
+
     // Create table canvas
     this.#tableCanvas = new DraggableTable(this);
   }
@@ -99,11 +103,9 @@ export class Page {
    * @param {PDFDocumentProxy} pdf PDF object returned by PDF.JS.
    * @param {function} currentPageSupplier A function returning the current page the user has scrolled to.
    * @param {int} pageNum Page number (starting at 1).
-   * @param {int} colCount The number of columns on this page.
-   * @param {int} rowCount The number of rows on this page.
    * @returns A Page object for this page.
    */
-  static async create(pageContainer, pdf, currentPageSupplier, pageNum, rowCount, colCount) {
+  static async create(pageContainer, pdf, currentPageSupplier, pageNum) {
     // Await page, info
     const [canvas, page, width, height] = await renderPDFOntoCanvas(pdf, pageNum);
 
@@ -111,7 +113,7 @@ export class Page {
     const textContent = (await page.getTextContent()).items;
 
     // Pass off to constructor
-    return new Page(pageContainer, pageNum, currentPageSupplier, canvas, width, height, textContent, colCount, rowCount);
+    return new Page(pageContainer, pageNum, currentPageSupplier, canvas, width, height, textContent);
   }
 
   /**
@@ -145,16 +147,19 @@ export class Page {
    * @param {float} y The y position of the table.
    */
   setPosition(x, y) {
-    this.#tableCoords[0] = x;
-    this.#tableCoords[1] = y;
+    // Clamp to page edges
+    this.#tableCoords[0] = clamp(x, 0, this.width - this.tableWidth);
+    this.#tableCoords[1] = clamp(y, 0, this.height - this.tableHeight);
   }
 
   /**
    * Clamps and sets the width of a column of this table.
    * @param {int} col The index of the column to set.
    * @param {float} width The width of the column, px.
+   * @return The clamped width, px.
    */
   setColumnWidth(col, width) {
+    width = clamp(width, MIN_COL_SIZE, this.width - this.tableX - this.tableWidth + this.getColWidth(col));;
     let delta = width - this.#columnWidths[col];
     this.#tableWidth += delta;
     this.#columnWidths[col] = width;
@@ -165,7 +170,114 @@ export class Page {
    * @param {float} height The height of a single row, px.
    */
   setRowHeight(height) {
+    height = clamp(height, MIN_ROW_SIZE, this.#rowHeight + (this.height - this.tableY - this.tableHeight) / this.#rowCount);
     this.#rowHeight = height;
+  }
+
+  /**
+   * Clamps and sets a new number of columns for this page.
+   * @param {int} newColCount The new number of columns.
+   * @returns The clamped number of columns.
+   */
+  setColumnCount(newColCount) {
+    newColCount = clamp(newColCount, 1, MAX_COLS);
+
+    if (newColCount === this.colCount) {
+      // No change in column count
+      return newColCount;
+    } else if (newColCount < this.colCount) {
+      // Columns removed
+      while (this.#columnWidths.length > newColCount) {
+        this.#tableWidth -= this.#columnWidths.pop();
+      }
+    } else {
+      // Columns added
+      let colDelta = newColCount - this.colCount;
+      let spaceOnLeft = this.#width - this.tableX - this.#tableWidth;
+
+      if (colDelta * DEFAULT_COL_SIZE <= spaceOnLeft) {
+        // Fits perfectly
+        this.#columnWidths.push(...Array(colDelta).fill(DEFAULT_COL_SIZE));
+        this.#tableWidth += colDelta * DEFAULT_COL_SIZE;
+      } else if (spaceOnLeft / colDelta >= MIN_COL_SIZE) {
+        // Fits with resizing below default
+        this.#columnWidths.push(...Array(colDelta).fill(spaceOnLeft / colDelta));
+        this.#tableWidth += spaceOnLeft;
+      } else if ((spaceOnLeft + this.tableX) / colDelta >= MIN_COL_SIZE) {
+        // Fits with moving table to the left and below default
+        this.setPosition(this.tableX - (colDelta - (spaceOnLeft / MIN_COL_SIZE)) * MIN_COL_SIZE, this.tableY);
+        this.#columnWidths.push(...Array(colDelta).fill(MIN_COL_SIZE));
+        this.#tableWidth += colDelta *= MIN_COL_SIZE;
+      } else {
+        // Doesn't even fit with moving the table, just cut columns
+        return this.setColumnCount(this.colCount + Math.floor((spaceOnLeft + this.tableX) / MIN_COL_SIZE));
+      }
+    }
+
+    // Redraw everything
+    this.#tableCanvas.stopDragging();
+    this.#tableCanvas.redraw();
+    return newColCount;
+  }
+
+  /**
+   * Clamps and sets a new number of rows for the page.
+   * @param {*} newRowCount The new number of rows.
+   * @returns The clamped number of rows
+   */
+  setRowCount(newRowCount) {
+    newRowCount = clamp(newRowCount, 1, MAX_ROWS);
+
+    if (newRowCount === this.rowCount) {
+      // No change
+      return newRowCount;
+    } else if (newRowCount < this.rowCount) {
+      // Rows removed
+      this.#rowCount = newRowCount;
+    } else {
+      // Rows added
+      let rowDelta = newRowCount - this.rowCount;
+      let spaceBelow = this.#height - this.tableY - this.tableHeight;
+
+      if (this.#rowHeight * rowDelta <= spaceBelow) {
+        // Fits perfectly
+        this.#rowCount = newRowCount;
+      } else if (this.#rowHeight * rowDelta <= spaceBelow + this.tableY) {
+        // Fits with table moved up
+        this.setPosition(this.tableX, this.tableY - (this.#rowHeight * rowDelta - spaceBelow));
+        this.#rowCount = newRowCount;
+      } else {
+        // Will never fit, just cut rows
+        return this.setRowCount(this.#rowCount + Math.floor((spaceBelow + this.tableY) / this.#rowHeight));
+      }
+    }
+
+    // Redraw everything
+    this.#tableCanvas.stopDragging();
+    this.#tableCanvas.redraw();
+    return newRowCount;
+  }
+
+  /**
+   * Attempts to copy the table layout of another page.
+   * @param {Page} template The page to copy from. 
+   */
+  copyFrom(template) {
+    this.setPosition(template.tableX, template.tableY);
+
+    // Add columns
+    this.#columnWidths = [];
+    this.#tableWidth = 0;
+
+    for (let c = 0; c < template.colCount; c++) {
+      this.setColumnCount(c + 1);
+      this.setColumnWidth(c, template.getColWidth(c));
+    }
+
+    // Add rows
+    this.#rowCount = 0;
+    this.setRowHeight(template.rowHeight);
+    this.setRowCount(template.rowCount);
   }
 
   /**

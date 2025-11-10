@@ -1,7 +1,7 @@
 "use-strict";
 
 import { setGlobalWorkerSource, loadPDFFromFile, } from "./pdf-wrapper.js";
-import { DEFAULT_COL_SIZE, MAX_COLS, MAX_ROWS, PAGE_MARGIN } from "./constants.js";
+import { DEFAULT_COL_SIZE, DEFAULT_COLS, DEFAULT_ROWS, MAX_COLS, MAX_ROWS, PAGE_MARGIN } from "./constants.js";
 import { Page } from "./page.js";
 import { clamp } from "./utils.js";
 
@@ -59,19 +59,18 @@ dom.fileInput.addEventListener("change", async () => {
   state.currentPage = 1;
 
   dom.pageCounter.innerText = `Page 1/${pdf.numPages}`;
+  dom.columnEntry.value = DEFAULT_COLS;
+  dom.rowEntry.value = DEFAULT_ROWS;
 
   let maxWidth = 1;
   let totalHeight = 0;
-
-  let colCount = parseInt(dom.columnEntry.value);
-  let rowCount = parseInt(dom.rowEntry.value);
 
   const currentPageSupplier = () => state.currentPage;
 
   // Load each page
   for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
     // Create page
-    let page = await Page.create(dom.pageContainer, pdf, currentPageSupplier, pageNum, rowCount, colCount)
+    let page = await Page.create(dom.pageContainer, pdf, currentPageSupplier, pageNum);
     state.pages.push(page);
 
     page.setTextboxesShown(state.textBoxesShown);
@@ -116,35 +115,22 @@ dom.pageContainer.addEventListener("scroll", () => {
 
 // When row input is changed, validate input and update table
 dom.rowEntry.addEventListener("change", () => {
-  const p = state.pages[state.currentPage - 1];
-  const rows = clamp(dom.rowEntry.value, 1, MAX_ROWS);
+  const page = state.pages[state.currentPage - 1];
+  if (page === undefined) return;
 
-  // TODO change
-  dom.rowEntry.value = rows;
-  p.rowCount = rows;
+  const clampedRows = page.setRowCount(dom.rowEntry.value);
 
-  // TODO rerender table here
+  dom.rowEntry.value = clampedRows;
 });
 
 // When column input is changed, validate input and update table
 dom.columnEntry.addEventListener("change", () => {
-  const p = state.pages[state.currentPage - 1];
-  const cols = clamp(dom.columnEntry.value, 1, MAX_COLS);
+  const page = state.pages[state.currentPage - 1];
+  if (page === undefined) return;
 
-  dom.columnEntry.value = cols;
+  const clampedCols = page.setColumnCount(dom.columnEntry.value);
 
-  // TODO change
-  if (cols < p.columnWidths.length) {
-    // Remove columns
-    p.columnWidths.length = cols;
-  } else {
-    // Add columns
-    while (p.columnWidths.length !== cols) {
-      p.columnWidths.push(DEFAULT_COL_SIZE);
-    }
-  }
-
-  // TODO rerender table here
+  dom.columnEntry.value = clampedCols;
 });
 
 // Show/Hide Text boxes on toggle
@@ -155,6 +141,16 @@ dom.toggleTextBoxesButton.addEventListener("click", () => {
 
   for (const p of state.pages) {
     p.setTextboxesShown(state.textBoxesShown);
+  }
+});
+
+// Apply to all following pages button
+dom.applyAllButton.addEventListener("click", () => {
+  const template = state.pages[state.currentPage - 1];
+  if (template === undefined) return;
+
+  for (let p = state.currentPage; p < state.pages.length; p++) {
+    state.pages[p].copyFrom(template);
   }
 });
 

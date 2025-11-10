@@ -10,11 +10,23 @@ export const MAX_ROWS = 200;
 /** Max number of columns. */
 export const MAX_COLS = 50;
 
+/** Default number of rows. */
+export const DEFAULT_ROWS = 3;
+
+/** Default number of columns. */
+export const DEFAULT_COLS = 4;
+
 /** Default row size, px. */
 export const DEFAULT_ROW_SIZE = 15;
 
 /** Default column size, px. */
 export const DEFAULT_COL_SIZE = 25;
+
+/** Minimum row size, px. */
+export const MIN_ROW_SIZE = 5;
+
+/** Minimum column size, px. */
+export const MIN_COL_SIZE = 5;
 
 /** Multiplier for table canvas sizing (ie, resolution). */
 export const TABLE_SCALE_FACTOR = 2;

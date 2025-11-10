@@ -1,5 +1,5 @@
-import { ACTIVE_TABLE_BORDER_COLOR, ACTIVE_TABLE_BORDER_WIDTH, NORMAL_TABLE_BORDER_COLOR, NORMAL_TABLE_BORDER_WIDTH, TABLE_HOVER_BUFFER, TABLE_SCALE_FACTOR } from "./constants.js";
-import { within } from "./utils.js";
+import { ACTIVE_TABLE_BORDER_COLOR, ACTIVE_TABLE_BORDER_WIDTH, MIN_COL_SIZE, NORMAL_TABLE_BORDER_COLOR, NORMAL_TABLE_BORDER_WIDTH, TABLE_HOVER_BUFFER, TABLE_SCALE_FACTOR } from "./constants.js";
+import { clamp, within } from "./utils.js";
 
 /** Describes what is being dragged currently. */
 const DragDim = {
@@ -180,11 +180,13 @@ export class DraggableTable {
           // A column is being dragged left/right
           if (this.#activeIdx === 0) {
             // The first border is being dragged left, need to adjust the table's x position
-            this.#page.setPosition(this.#page.tableX + deltas.x, this.#page.tableY);
-            this.#page.setColumnWidth(0, this.#page.getColWidth(0) - deltas.x);
+            let clampedDeltaX = clamp(deltas.x, -this.#page.tableX, this.#page.getColWidth(0) - MIN_COL_SIZE);
+
+            this.#page.setPosition(this.#page.tableX + clampedDeltaX, this.#page.tableY);
+            this.#page.setColumnWidth(0, this.#page.getColWidth(0) - clampedDeltaX);
           } else {
             // Simply add to its width
-            let idx = Math.max(0, this.#activeIdx-1);
+            let idx = this.#activeIdx-1;
             this.#page.setColumnWidth(idx, this.#page.getColWidth(idx) + deltas.x);
           }
         } else if (this.#activeDim === DragDim.ROW) {
