@@ -1,10 +1,12 @@
+import { PDF_JS_GLOBAL_WORKER_SOURCE } from "./constants.js";
+
 /**
  * Tries to set the PDF.JS global worker source every 100ms until success.
  */
-function setGlobalWorkerSource() {
+export function setGlobalWorkerSource() {
   if (window.hasOwnProperty("pdfjsLib")) {
     // PDFJS has been loaded
-    pdfjsLib.GlobalWorkerOptions.workerSrc = "./pdfjs-5.4.394-legacy-dist/build/pdf.worker.mjs";
+    pdfjsLib.GlobalWorkerOptions.workerSrc = PDF_JS_GLOBAL_WORKER_SOURCE;
     console.log("Successfully set PDFJS global worker source");
   } else {
     // PDFJS not yet loaded
@@ -17,7 +19,7 @@ function setGlobalWorkerSource() {
  * @param {File} file Input file object.
  * @returns PDF.JS PDFDocumentProxy object.
  */
-async function loadPDFFromFile(file) {
+export async function loadPDFFromFile(file) {
   const arrayBuffer = await file.arrayBuffer();
   return await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
 }
@@ -29,13 +31,15 @@ async function loadPDFFromFile(file) {
  * @param {float} scale Viewport scaling (default 1.0).
  * @returns Created canvas, PDF page, PDF width, PDF height.
  */
-async function renderPDFOntoCanvas(pdf, pageNum, scale=1.0) {
+export async function renderPDFOntoCanvas(pdf, pageNum, scale=1.0) {
   const page = await pdf.getPage(pageNum);
   const viewport = page.getViewport({ scale: 1 });
 
-  const [canvas, ctx] = createCanvas(viewport.width, viewport.height);
+  const canvas = document.createElement("canvas");
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
 
-  await page.render({ canvasContext: ctx, viewport }).promise;
+  await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
   return [canvas, page, viewport.width, viewport.height];
 }
 
@@ -45,7 +49,7 @@ async function renderPDFOntoCanvas(pdf, pageNum, scale=1.0) {
  * @param {*} pageHeight The height of the page.
  * @returns The x, y coords of the word's center, relative to the top-left corner of the page.
  */
-function getTextCenter(word, pageHeight) {
+export function getTextCenter(word, pageHeight) {
   const [a, b, c, d, e, f] = word.transform;
   const height = Math.sqrt(c*c + d*d); // word.height is usually wrong
 
@@ -54,6 +58,3 @@ function getTextCenter(word, pageHeight) {
     pageHeight - (f + (height / 2))
   ];
 }
-
-// As soon as loaded, try setting the global worker source
-setGlobalWorkerSource();
