@@ -1,6 +1,7 @@
 import { clamp } from "../shared/utils.js";
 import { BasePage } from "../shared/base-page.js";
 import { DEFAULT_ROW_SIZE, DEFAULT_ROWS, MAX_ROWS, MIN_ROW_SIZE } from "./constants.js";
+import { InteractiveLayer } from "../shared/interactive-layer.js";
 
 /**
  * Represents a single PDF Page, with tables and text box annotations, in which the size of each row
@@ -21,7 +22,7 @@ export class FixedRowPage extends BasePage {
    * @param {*} textContent A list of text boxes on this page (from page.getTextContent().items).
    */
   constructor(pageContainer, pageNum, currentPageSupplier, pdfCanvas, width, height, textContent) {
-    super(pageContainer, pageNum, currentPageSupplier, pdfCanvas, width, height, textContent);
+    super(pageContainer, pageNum, currentPageSupplier, pdfCanvas, width, height, textContent, InteractiveLayer);
 
     // Init table
     this.#rowCount = DEFAULT_ROWS;

@@ -1,5 +1,4 @@
 import { DEFAULT_COL_SIZE, DEFAULT_COLS, MAX_COLS, MIN_COL_SIZE, TEXT_BOX_COLOR, TEXT_BOX_RADIUS } from "./constants.js";
-import { InteractiveLayer } from "./interactive-layer.js";
 import { getTextCenter, renderPDFOntoCanvas } from "./pdf-wrapper.js";
 import { clamp, escapeCSV, isStringEmpty } from "./utils.js";
 
@@ -30,8 +29,10 @@ export class BasePage {
    * @param {float} width The width of this page, px.
    * @param {float} height The height of this page, px.
    * @param {*} textContent A list of text boxes on this page (from page.getTextContent().items).
+   * @param {extends InteractiveLayer} InteractiveLayerClass The class or subclass of InteractiveLayer
+   * to use.
    */
-  constructor(pageContainer, pageNum, currentPageSupplier, pdfCanvas, width, height, textContent) {
+  constructor(pageContainer, pageNum, currentPageSupplier, pdfCanvas, width, height, textContent, InteractiveLayerClass) {
     // Init default values
     this.#idx = pageNum;
     this.#width = width;
@@ -93,7 +94,7 @@ export class BasePage {
     });
 
     // Init interactive layer
-    this.#interactiveLayer = new InteractiveLayer(this);
+    this.#interactiveLayer = new InteractiveLayerClass(this);
   }
 
   /**

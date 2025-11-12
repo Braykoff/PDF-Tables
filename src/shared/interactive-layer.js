@@ -293,4 +293,18 @@ export class InteractiveLayer {
     // Set pointer
     this.#page.setCursor(cursorForDragDim(this.#activeDim));
   }
+
+  /**
+   * Gets this layer's page.
+   */
+  get page() {
+    return this.#page;
+  }
+
+  /**
+   * Gets this layer's canvas 2d context.
+   */
+  get context() {
+    return this.#ctx;
+  }
 }

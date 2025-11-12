@@ -2,6 +2,7 @@ import { clamp } from "../shared/utils.js";
 import { BasePage } from "../shared/base-page.js";
 import { DEFAULT_TABLE_HEIGHT } from "./constants.js";
 import { MIN_TABLE_HEIGHT } from "./constants.js";
+import { DetectedRowInteractiveLayer } from "./interactive-layer.js";
 
 /**
  * Represents a single PDF Page, with tables and text box annotations, in which the size of each row
@@ -22,7 +23,7 @@ export class DetectedRowPage extends BasePage {
    * @param {*} textContent A list of text boxes on this page (from page.getTextContent().items).
    */
   constructor(pageContainer, pageNum, currentPageSupplier, pdfCanvas, width, height, textContent) {
-    super(pageContainer, pageNum, currentPageSupplier, pdfCanvas, width, height, textContent);
+    super(pageContainer, pageNum, currentPageSupplier, pdfCanvas, width, height, textContent, DetectedRowInteractiveLayer);
 
     // Init table
     this.#rowHeights = [DEFAULT_TABLE_HEIGHT];
