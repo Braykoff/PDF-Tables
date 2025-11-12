@@ -1,4 +1,5 @@
 import { DEFAULT_COL_SIZE, DEFAULT_COLS, MAX_COLS, MIN_COL_SIZE, TEXT_BOX_COLOR, TEXT_BOX_RADIUS } from "./constants.js";
+import { InteractiveLayer } from "./interactive-layer.js";
 import { getTextCenter, renderPDFOntoCanvas } from "./pdf-wrapper.js";
 import { clamp, escapeCSV, isStringEmpty } from "./utils.js";
 
@@ -18,6 +19,7 @@ export class BasePage {
   #columnWidths;
   #tableWidth;
   #tableCoords;
+  #interactiveLayer
 
   /**
    * Creates a Page object. Use the async .create(...) method instead.
@@ -89,6 +91,9 @@ export class BasePage {
       if (a.y !== b.y) return a.y - b.y;
       return a.x - b.x;
     });
+
+    // Init interactive layer
+    this.#interactiveLayer = new InteractiveLayer(this);
   }
 
   /**
@@ -207,6 +212,7 @@ export class BasePage {
       }
     }
 
+    // Redraw
     this.forceRedraw();
     return newColCount;
   }
@@ -215,7 +221,8 @@ export class BasePage {
    * Forces the interactive layer to stop dragging and redraw.
    */
   forceRedraw() {
-    throw "This is a base class, override this function.";
+    this.#interactiveLayer.stopDragging();
+    this.#interactiveLayer.redraw();
   }
 
   /**
@@ -302,6 +309,7 @@ export class BasePage {
    * Detaches all event listeners, removes all elements.
    */
   destroy() {
+    this.#interactiveLayer.detach();
     this.#canvasContainer.remove();
   }
 
@@ -406,5 +414,12 @@ export class BasePage {
    */
   get pagesFromViewport() {
     return Math.abs(this.#currentPageSupplier() - this.#idx);
+  }
+
+  /**
+   * Gets the words, x, y coordinates in top-bottom, left-right order.
+   */
+  get words() {
+    return this.#words;
   }
 }

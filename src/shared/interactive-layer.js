@@ -35,9 +35,9 @@ function cursorForDragDim(dim) {
 }
 
 /**
- * Base class to represent the interactive components of a page.
+ * Represents the interactive components of a page.
  */
-export class BaseInteractiveLayer {
+export class InteractiveLayer {
   #page = undefined;
   #ctx = undefined;
   #activeDim = DragDim.NONE;
@@ -60,10 +60,6 @@ export class BaseInteractiveLayer {
     page.addCanvas(canvas);
 
     this.#ctx = canvas.getContext("2d");
-
-    // Initial draw
-    this.stopDragging();
-    this.redraw();
 
     // Init listeners
     const mouseMoveListener = this.#mouseMove.bind(this);
@@ -204,7 +200,6 @@ export class BaseInteractiveLayer {
         }
 
         this.#lastMousePose = pos;
-        this.onVerticalDrag();
         this.redraw();
       } else {
         // Check hovering?
@@ -298,10 +293,4 @@ export class BaseInteractiveLayer {
     // Set pointer
     this.#page.setCursor(cursorForDragDim(this.#activeDim));
   }
-
-  /**
-   * Method that is called whenever this table is vertically resized. Override this in subclasses
-   * for specific functionality.
-   */
-  onVerticalDrag() { }
 }

@@ -1,7 +1,6 @@
 import { clamp } from "../shared/utils.js";
 import { BasePage } from "../shared/base-page.js";
 import { DEFAULT_ROW_SIZE, DEFAULT_ROWS, MAX_ROWS, MIN_ROW_SIZE } from "./constants.js";
-import { FixedRowInteractiveLayer } from "./interactive-layer.js";
 
 /**
  * Represents a single PDF Page, with tables and text box annotations, in which the size of each row
@@ -10,7 +9,6 @@ import { FixedRowInteractiveLayer } from "./interactive-layer.js";
 export class FixedRowPage extends BasePage {
   #rowCount;
   #rowHeight;
-  #interactiveLayer;
 
   /**
    * Creates a Page object. Use the async .create(...) method instead.
@@ -29,8 +27,8 @@ export class FixedRowPage extends BasePage {
     this.#rowCount = DEFAULT_ROWS;
     this.#rowHeight = DEFAULT_ROW_SIZE;
 
-    // Create table canvas
-    this.#interactiveLayer = new FixedRowInteractiveLayer(this);
+    // Initial draw
+    this.forceRedraw();
   }
 
   setTableHeight(height) {
@@ -83,16 +81,6 @@ export class FixedRowPage extends BasePage {
 
     // Redraw
     this.forceRedraw();
-  }
-
-  forceRedraw() {
-    this.#interactiveLayer.stopDragging();
-    this.#interactiveLayer.redraw();
-  }
-
-  destroy() {
-    this.#interactiveLayer.detach();
-    super.destroy();
   }
 
   get rowCount() {
