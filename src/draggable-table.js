@@ -253,7 +253,7 @@ export class DraggableTable {
       y *= TABLE_SCALE_FACTOR;
 
       // Set stroke style
-      const active = this.#state >= 0 && this.#activeDim == DragDim.ROW && this.#activeIdx == r;
+      const active = this.#state >= 0 && this.#activeDim === DragDim.ROW && this.#activeIdx === r;
       this.#ctx.lineWidth = (active ? ACTIVE_TABLE_BORDER_WIDTH : NORMAL_TABLE_BORDER_WIDTH) * TABLE_SCALE_FACTOR;
       this.#ctx.strokeStyle = active ? ACTIVE_TABLE_BORDER_COLOR : NORMAL_TABLE_BORDER_COLOR;
 
@@ -272,7 +272,7 @@ export class DraggableTable {
       x *= TABLE_SCALE_FACTOR;
 
       // Set stroke style
-      const active = this.#state >= 0 && this.#activeDim == DragDim.COL && this.#activeIdx == c;
+      const active = this.#state >= 0 && this.#activeDim === DragDim.COL && this.#activeIdx === c;
       this.#ctx.lineWidth = (active ? ACTIVE_TABLE_BORDER_WIDTH : NORMAL_TABLE_BORDER_WIDTH) * TABLE_SCALE_FACTOR;
       this.#ctx.strokeStyle = active ? ACTIVE_TABLE_BORDER_COLOR : NORMAL_TABLE_BORDER_COLOR;
 
