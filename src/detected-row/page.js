@@ -27,7 +27,7 @@ export class DetectedRowPage extends BasePage {
     // Init table
     this.#rowHeights = [DEFAULT_TABLE_HEIGHT];
     this.#tableHeight = DEFAULT_TABLE_HEIGHT;
-    
+
     // Initial draw
     this.forceRedraw();
   }
@@ -40,7 +40,8 @@ export class DetectedRowPage extends BasePage {
   }
 
   /**
-   * 
+   * Auto detects rows in the table. This is done by looking at each of y positions of the text
+   * boxes in the index (first) column.
    */
   detectRows() {
     let indexRowStop = this.tableX + this.getColWidth(0);
@@ -65,20 +66,20 @@ export class DetectedRowPage extends BasePage {
     let minRowSize = rowYPos[1] - rowYPos[0];
 
     for (let r = 2; r < rowYPos.length; r++) {
-      minRowSize = Math.min(minRowSize, rowYPos[r] - rowYPos[r-1]);
+      minRowSize = Math.min(minRowSize, rowYPos[r] - rowYPos[r - 1]);
     }
 
     // Each row ends at the previous text box y coord minus the default (minimum) row height / 2
     this.#rowHeights = [];
     let cumHeight = 0;
-    
+
     for (let r = 1; r <= rowYPos.length; r++) {
       if (r === rowYPos.length) {
         // This is the last row, use bottom border
         this.#rowHeights.push(this.#tableHeight - cumHeight);
       } else {
         // This is not the last row, use next row
-        let h = rowYPos[r] - this.tableY - cumHeight - (minRowSize/2);
+        let h = rowYPos[r] - this.tableY - cumHeight - (minRowSize / 2);
         cumHeight += h;
         this.#rowHeights.push(h);
       }

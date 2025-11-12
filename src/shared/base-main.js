@@ -1,4 +1,4 @@
-import { DEFAULT_COLS, PAGE_MARGIN } from "./constants.js";
+import { DEFAULT_COLS } from "./constants.js";
 import { loadPDFFromFile, setGlobalWorkerSource } from "./pdf-wrapper.js";
 import { downloadFile, writeCSV } from "./utils.js";
 
@@ -67,7 +67,6 @@ export function runBaseApp(PageClass, state, onPageChange) {
     dom.columnEntry.value = DEFAULT_COLS;
 
     let maxWidth = 1;
-    let totalHeight = 0;
 
     const currentPageSupplier = () => state.currentPage;
 
@@ -81,7 +80,6 @@ export function runBaseApp(PageClass, state, onPageChange) {
 
       // Keep track of cumulative size
       maxWidth = Math.max(maxWidth, page.width);
-      totalHeight += page.height + PAGE_MARGIN;
     }
 
     // Now show PDF

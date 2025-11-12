@@ -91,7 +91,7 @@ export class FixedRowPage extends BasePage {
     return this.#rowHeight * this.#rowCount;
   }
 
-  getRowHeight(row) {
+  getRowHeight(_row) {
     return this.#rowHeight;
   }
 }

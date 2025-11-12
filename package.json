@@ -1,0 +1,26 @@
+{
+  "name": "pdf-tables",
+  "version": "1.0.0",
+  "description": "Find and extract tables embedded in PDF documents",
+  "scripts": {
+    "build-fixed": "esbuild src/fixed-row/main.js --bundle --minify --sourcemap --outfile=dist/bundle-fixed-rows.min.js --target=esnext --format=esm",
+    "build-detected": "esbuild src/detected-row/main.js --bundle --minify --sourcemap --outfile=dist/bundle-detected-rows.min.js --target=esnext --format=esm"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Braykoff/PDF-Tables.git"
+  },
+  "author": "braykoff",
+  "license": "MIT",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Braykoff/PDF-Tables/issues"
+  },
+  "homepage": "https://github.com/Braykoff/PDF-Tables#readme",
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "esbuild": "^0.27.0",
+    "eslint": "^9.39.1",
+    "globals": "^16.5.0"
+  }
+}

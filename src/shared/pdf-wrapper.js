@@ -1,17 +1,12 @@
 import { PDF_JS_GLOBAL_WORKER_SOURCE } from "./constants.js";
+import * as pdfjsLib from '../../pdfjs-5.4.394-legacy-dist/build/pdf.mjs';
 
 /**
- * Tries to set the PDF.JS global worker source every 100ms until success.
+ * Sets the PDF.JS global worker source.
  */
 export function setGlobalWorkerSource() {
-  if (window.hasOwnProperty("pdfjsLib")) {
-    // PDFJS has been loaded
-    pdfjsLib.GlobalWorkerOptions.workerSrc = PDF_JS_GLOBAL_WORKER_SOURCE;
-    console.log("Successfully set PDFJS global worker source");
-  } else {
-    // PDFJS not yet loaded
-    window.setTimeout(setGlobalWorkerSource, 100);
-  }
+  pdfjsLib.GlobalWorkerOptions.workerSrc = PDF_JS_GLOBAL_WORKER_SOURCE;
+  console.log("Successfully set PDFJS global worker source");
 }
 
 /**
@@ -28,10 +23,9 @@ export async function loadPDFFromFile(file) {
  * Renders a PDF.JS pdf onto a new canvas and returns its width and height.
  * @param {PDFDocumentProxy} pdf PDF object returned from PDF.JS.
  * @param {int} pageNum Page number (starting at 1).
- * @param {float} scale Viewport scaling (default 1.0).
  * @returns Created canvas, PDF page, PDF width, PDF height.
  */
-export async function renderPDFOntoCanvas(pdf, pageNum, scale = 1.0) {
+export async function renderPDFOntoCanvas(pdf, pageNum) {
   const page = await pdf.getPage(pageNum);
   const viewport = page.getViewport({ scale: 1 });
 
@@ -50,7 +44,7 @@ export async function renderPDFOntoCanvas(pdf, pageNum, scale = 1.0) {
  * @returns The x, y coords of the word's center, relative to the top-left corner of the page.
  */
 export function getTextCenter(word, pageHeight) {
-  const [a, b, c, d, e, f] = word.transform;
+  const [_a, _b, c, d, e, f] = word.transform;
   const height = Math.sqrt(c * c + d * d); // word.height is usually wrong
 
   return [

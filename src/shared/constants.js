@@ -1,9 +1,6 @@
 /** Source url for PDF.JS global worker. */
 export const PDF_JS_GLOBAL_WORKER_SOURCE = "./pdfjs-5.4.394-legacy-dist/build/pdf.worker.mjs";
 
-/** Margin between pages, px. */
-export const PAGE_MARGIN = 10;
-
 /** Max number of columns. */
 export const MAX_COLS = 50;
 

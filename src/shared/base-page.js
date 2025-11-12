@@ -168,7 +168,7 @@ export class BasePage {
    * Clamps and sets the height of the table (and thus each row).
    * @param {float} height The height of the entire table.
    */
-  setTableHeight(height) {
+  setTableHeight(_height) {
     throw "This is a base class, override this function.";
   }
 
@@ -405,7 +405,7 @@ export class BasePage {
    * @param {int} row The index of the row.
    * @returns The height of the row, px.
    */
-  getRowHeight(row) {
+  getRowHeight(_row) {
     throw "This is a base class, override this function.";
   }
 

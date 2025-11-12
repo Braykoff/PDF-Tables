@@ -69,7 +69,7 @@ export function writeCSV(pages) {
  */
 export function escapeCSV(cell) {
   if (cell.indexOf(",") !== -1 || cell.indexOf("\n") !== -1 || cell.indexOf("\"") !== -1) {
-    return `"${cell.replaceAll("\'", "\"\"")}"`;
+    return `"${cell.replaceAll("\"", "\"\"")}"`;
   } else {
     return cell;
   }
