@@ -1,6 +1,6 @@
 /**
  * Checks if a string is undefined, null, or only whitespace.
- * @param {str} string The string to check.
+ * @param {string} string The string to check.
  * @returns True if the string is empty.
  */
 export function isStringEmpty(string) {
@@ -31,7 +31,7 @@ export function within(value, target, buffer) {
 
 /**
  * Converts a list of pages to a CSV file.
- * @param {*} pages The list of Pages to use.
+ * @param {BasePage} pages The list of Pages to use.
  * @returns The contents of the CSV file.
  */
 export function writeCSV(pages) {
@@ -58,8 +58,21 @@ export function writeCSV(pages) {
     out += "\n";
     out += p.getCSV(maxCols);
   }
-  
+
   return out;
+}
+
+/**
+ * Checks if a cell in a CSV table needs escaping, and escapes it if it does.
+ * @param {string} cell The content of a single CSV cell to check.
+ * @returns The escaped cell, in CSV format.
+ */
+export function escapeCSV(cell) {
+  if (cell.indexOf(",") !== -1 || cell.indexOf("\n") !== -1 || cell.indexOf("\"") !== -1) {
+    return `"${cell.replaceAll("\'", "\"\"")}"`;
+  } else {
+    return cell;
+  }
 }
 
 /**
@@ -68,7 +81,7 @@ export function writeCSV(pages) {
  * @param {string} content The content of the file.
  * @param {string} type The type of the file (Optional, default "text/csv").
  */
-export function downloadFile(name, content, type="text/csv") {
+export function downloadFile(name, content, type = "text/csv") {
   // Create Blob for the file
   const blob = new Blob([content], { type: type });
   const url = URL.createObjectURL(blob);

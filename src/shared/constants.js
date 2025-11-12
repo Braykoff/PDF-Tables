@@ -4,26 +4,14 @@ export const PDF_JS_GLOBAL_WORKER_SOURCE = "./pdfjs-5.4.394-legacy-dist/build/pd
 /** Margin between pages, px. */
 export const PAGE_MARGIN = 10;
 
-/** Max number of rows. */
-export const MAX_ROWS = 200;
-
 /** Max number of columns. */
 export const MAX_COLS = 50;
-
-/** Default number of rows. */
-export const DEFAULT_ROWS = 3;
 
 /** Default number of columns. */
 export const DEFAULT_COLS = 4;
 
-/** Default row size, px. */
-export const DEFAULT_ROW_SIZE = 15;
-
 /** Default column size, px. */
 export const DEFAULT_COL_SIZE = 25;
-
-/** Minimum row size, px. */
-export const MIN_ROW_SIZE = 5;
 
 /** Minimum column size, px. */
 export const MIN_COL_SIZE = 5;

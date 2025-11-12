@@ -35,9 +35,9 @@ function cursorForDragDim(dim) {
 }
 
 /**
- * Represents a page's table that can dragged around.
+ * Base class to represent the interactive components of a page.
  */
-export class DraggableTable {
+export class BaseInteractiveLayer {
   #page = undefined;
   #ctx = undefined;
   #activeDim = DragDim.NONE;
@@ -47,7 +47,7 @@ export class DraggableTable {
 
   /**
    * Creates a DraggableTable object.
-   * @param {Page} page The page object for this table.
+   * @param {BasePage} page The page object for this table.
    */
   constructor(page) {
     this.#page = page;
@@ -173,9 +173,8 @@ export class DraggableTable {
 
       if (this.#state === DragState.DRAGGING) {
         // We are actively being dragged
-        const deltas = {x: pos.x - this.#lastMousePose.x, y: pos.y - this.#lastMousePose.y};
+        const deltas = { x: pos.x - this.#lastMousePose.x, y: pos.y - this.#lastMousePose.y };
 
-        // TODO validate position
         if (this.#activeDim === DragDim.COL) {
           // A column is being dragged left/right
           if (this.#activeIdx === 0) {
@@ -186,7 +185,7 @@ export class DraggableTable {
             this.#page.setColumnWidth(0, this.#page.getColWidth(0) - clampedDeltaX);
           } else {
             // Simply add to its width
-            let idx = this.#activeIdx-1;
+            let idx = this.#activeIdx - 1;
             this.#page.setColumnWidth(idx, this.#page.getColWidth(idx) + deltas.x);
           }
         } else if (this.#activeDim === DragDim.ROW) {
@@ -194,10 +193,10 @@ export class DraggableTable {
           if (this.#activeIdx === 0) {
             // The top border is being dragged up, need to adjust the table's y position
             this.#page.setPosition(this.#page.tableX, this.#page.tableY + deltas.y);
-            this.#page.setRowHeight(this.#page.rowHeight - (deltas.y / this.#page.rowCount));
+            this.#page.setTableHeight(this.#page.tableHeight - deltas.y);
           } else {
             // The bottom border is being dragged down
-            this.#page.setRowHeight(this.#page.rowHeight + (deltas.y / this.#page.rowCount));
+            this.#page.setTableHeight(this.#page.tableHeight + deltas.y);
           }
         } else {
           // The whole table is being dragged
@@ -205,6 +204,7 @@ export class DraggableTable {
         }
 
         this.#lastMousePose = pos;
+        this.onVerticalDrag();
         this.redraw();
       } else {
         // Check hovering?
@@ -248,8 +248,10 @@ export class DraggableTable {
     this.#ctx.reset();
 
     // Draw horizontal (row) lines
+    let cumHeight = 0;
+
     for (let r = 0; r <= this.#page.rowCount; r++) {
-      let y = this.#page.tableY + (this.#page.rowHeight * r);
+      let y = this.#page.tableY + cumHeight;
       y *= TABLE_SCALE_FACTOR;
 
       // Set stroke style
@@ -262,6 +264,11 @@ export class DraggableTable {
       this.#ctx.moveTo(this.#page.tableX * TABLE_SCALE_FACTOR, y);
       this.#ctx.lineTo((this.#page.tableX + this.#page.tableWidth) * TABLE_SCALE_FACTOR, y);
       this.#ctx.stroke();
+
+      // Accumulate the height
+      if (r !== this.#page.rowCount) {
+        cumHeight += this.#page.getRowHeight(r);
+      }
     }
 
     // Draw vertical (column lines)
@@ -291,4 +298,10 @@ export class DraggableTable {
     // Set pointer
     this.#page.setCursor(cursorForDragDim(this.#activeDim));
   }
+
+  /**
+   * Method that is called whenever this table is vertically resized. Override this in subclasses
+   * for specific functionality.
+   */
+  onVerticalDrag() { }
 }

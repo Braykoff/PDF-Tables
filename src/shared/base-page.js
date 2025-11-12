@@ -1,25 +1,23 @@
-import { DEFAULT_COL_SIZE, DEFAULT_COLS, DEFAULT_ROW_SIZE, DEFAULT_ROWS, MAX_COLS, MAX_ROWS, MIN_COL_SIZE, MIN_ROW_SIZE, TEXT_BOX_COLOR, TEXT_BOX_RADIUS } from "./constants.js";
-import { DraggableTable } from "./draggable-table.js";
+import { DEFAULT_COL_SIZE, DEFAULT_COLS, MAX_COLS, MIN_COL_SIZE, TEXT_BOX_COLOR, TEXT_BOX_RADIUS } from "./constants.js";
 import { getTextCenter, renderPDFOntoCanvas } from "./pdf-wrapper.js";
-import { clamp, isStringEmpty } from "./utils.js";
+import { clamp, escapeCSV, isStringEmpty } from "./utils.js";
 
 /**
- * Represents a single PDF Page, with tables and text box annotations.
+ * Base class to represents a single PDF Page, with tables and text box annotations.
+ * Extended by FixedRowPage and DetectedRowPage classes.
  */
-export class Page {
+export class BasePage {
   #idx;
   #width;
   #height;
   #words;
-  #columnWidths;
-  #tableWidth;
-  #rowCount;
-  #rowHeight;
-  #tableCoords;
   #canvasContainer;
   #wordCanvas;
-  #tableCanvas;
   #currentPageSupplier;
+
+  #columnWidths;
+  #tableWidth;
+  #tableCoords;
 
   /**
    * Creates a Page object. Use the async .create(...) method instead.
@@ -36,13 +34,12 @@ export class Page {
     this.#idx = pageNum;
     this.#width = width;
     this.#height = height;
+    this.#currentPageSupplier = currentPageSupplier;
 
+    // Init what is known about the table
     this.#columnWidths = Array(DEFAULT_COLS).fill(DEFAULT_COL_SIZE);
     this.#tableWidth = DEFAULT_COLS * DEFAULT_COL_SIZE;
-    this.#rowCount = DEFAULT_ROWS;
-    this.#rowHeight = DEFAULT_ROW_SIZE;
     this.#tableCoords = [5, 5];
-    this.#currentPageSupplier = currentPageSupplier;
 
     // Create page container
     this.#canvasContainer = document.createElement("div");
@@ -92,9 +89,6 @@ export class Page {
       if (a.y !== b.y) return a.y - b.y;
       return a.x - b.x;
     });
-
-    // Create table canvas
-    this.#tableCanvas = new DraggableTable(this);
   }
 
   /**
@@ -113,7 +107,7 @@ export class Page {
     const textContent = (await page.getTextContent()).items;
 
     // Pass off to constructor
-    return new Page(pageContainer, pageNum, currentPageSupplier, canvas, width, height, textContent);
+    return new this(pageContainer, pageNum, currentPageSupplier, canvas, width, height, textContent);
   }
 
   /**
@@ -166,12 +160,11 @@ export class Page {
   }
 
   /**
-   * Clamps and sets the height of all the rows in this table.
-   * @param {float} height The height of a single row, px.
+   * Clamps and sets the height of the table (and thus each row).
+   * @param {float} height The height of the entire table.
    */
-  setRowHeight(height) {
-    height = clamp(height, MIN_ROW_SIZE, this.#rowHeight + (this.height - this.tableY - this.tableHeight) / this.#rowCount);
-    this.#rowHeight = height;
+  setTableHeight(height) {
+    throw "This is a base class, override this function.";
   }
 
   /**
@@ -193,7 +186,7 @@ export class Page {
     } else {
       // Columns added
       let colDelta = newColCount - this.colCount;
-      let spaceOnLeft = this.#width - this.tableX - this.#tableWidth;
+      let spaceOnLeft = this.width - this.tableX - this.#tableWidth;
 
       if (colDelta * DEFAULT_COL_SIZE <= spaceOnLeft) {
         // Fits perfectly
@@ -214,53 +207,20 @@ export class Page {
       }
     }
 
-    // Redraw everything
-    this.#tableCanvas.stopDragging();
-    this.#tableCanvas.redraw();
+    this.forceRedraw();
     return newColCount;
   }
 
   /**
-   * Clamps and sets a new number of rows for the page.
-   * @param {*} newRowCount The new number of rows.
-   * @returns The clamped number of rows
+   * Forces the interactive layer to stop dragging and redraw.
    */
-  setRowCount(newRowCount) {
-    newRowCount = clamp(newRowCount, 1, MAX_ROWS);
-
-    if (newRowCount === this.rowCount) {
-      // No change
-      return newRowCount;
-    } else if (newRowCount < this.rowCount) {
-      // Rows removed
-      this.#rowCount = newRowCount;
-    } else {
-      // Rows added
-      let rowDelta = newRowCount - this.rowCount;
-      let spaceBelow = this.#height - this.tableY - this.tableHeight;
-
-      if (this.#rowHeight * rowDelta <= spaceBelow) {
-        // Fits perfectly
-        this.#rowCount = newRowCount;
-      } else if (this.#rowHeight * rowDelta <= spaceBelow + this.tableY) {
-        // Fits with table moved up
-        this.setPosition(this.tableX, this.tableY - (this.#rowHeight * rowDelta - spaceBelow));
-        this.#rowCount = newRowCount;
-      } else {
-        // Will never fit, just cut rows
-        return this.setRowCount(this.#rowCount + Math.floor((spaceBelow + this.tableY) / this.#rowHeight));
-      }
-    }
-
-    // Redraw everything
-    this.#tableCanvas.stopDragging();
-    this.#tableCanvas.redraw();
-    return newRowCount;
+  forceRedraw() {
+    throw "This is a base class, override this function.";
   }
 
   /**
    * Attempts to copy the table layout of another page.
-   * @param {Page} template The page to copy from. 
+   * @param {BasePage} template The page to copy from. 
    */
   copyFrom(template) {
     this.setPosition(template.tableX, template.tableY);
@@ -273,11 +233,6 @@ export class Page {
       this.setColumnCount(c + 1);
       this.setColumnWidth(c, template.getColWidth(c));
     }
-
-    // Add rows
-    this.#rowCount = 0;
-    this.setRowHeight(template.rowHeight);
-    this.setRowCount(template.rowCount);
   }
 
   /**
@@ -315,7 +270,7 @@ export class Page {
       cumLength = 0;
 
       for (let r = 0; r < this.rowCount; r++) {
-        cumLength += this.#rowHeight;
+        cumLength += this.getRowHeight(r);
 
         if (word.y < this.tableY + cumLength) {
           rowIdx = r;
@@ -332,13 +287,9 @@ export class Page {
 
     // Format into csv format
     for (let r = 0; r < this.rowCount; r++) {
-      // Check if escape characters needed
+      // Escape each value in the row
       for (let c = 0; c < columns; c++) {
-        let cell = table[r][c];
-
-        if (cell.indexOf(",") !== -1 || cell.indexOf("\n") !== -1 || cell.indexOf("\"") !== -1) {
-          table[r][c] = `"${cell.replaceAll("\'", "\"\"")}"`;
-        }
+        table[r][c] = escapeCSV(table[r][c]);
       }
 
       table[r] = table[r].join(",");
@@ -351,7 +302,6 @@ export class Page {
    * Detaches all event listeners, removes all elements.
    */
   destroy() {
-    this.#tableCanvas.detach();
     this.#canvasContainer.remove();
   }
 
@@ -395,7 +345,7 @@ export class Page {
    * The number of rows in this page's table.
    */
   get rowCount() {
-    return this.#rowCount;
+    throw "This is a base class, override this function.";
   }
 
   /**
@@ -430,7 +380,7 @@ export class Page {
    * Gets the total table height, px.
    */
   get tableHeight() {
-    return this.#rowHeight * this.#rowCount;
+    throw "This is a base class, override this function.";
   }
 
   /**
@@ -443,10 +393,12 @@ export class Page {
   }
 
   /**
-   * Gets the height of a row in the table, px.
+   * Gets the height of a certain row.
+   * @param {int} row The index of the row.
+   * @returns The height of the row, px.
    */
-  get rowHeight() {
-    return this.#rowHeight;
+  getRowHeight(row) {
+    throw "This is a base class, override this function.";
   }
 
   /**

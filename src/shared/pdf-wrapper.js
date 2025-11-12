@@ -31,7 +31,7 @@ export async function loadPDFFromFile(file) {
  * @param {float} scale Viewport scaling (default 1.0).
  * @returns Created canvas, PDF page, PDF width, PDF height.
  */
-export async function renderPDFOntoCanvas(pdf, pageNum, scale=1.0) {
+export async function renderPDFOntoCanvas(pdf, pageNum, scale = 1.0) {
   const page = await pdf.getPage(pageNum);
   const viewport = page.getViewport({ scale: 1 });
 
@@ -51,7 +51,7 @@ export async function renderPDFOntoCanvas(pdf, pageNum, scale=1.0) {
  */
 export function getTextCenter(word, pageHeight) {
   const [a, b, c, d, e, f] = word.transform;
-  const height = Math.sqrt(c*c + d*d); // word.height is usually wrong
+  const height = Math.sqrt(c * c + d * d); // word.height is usually wrong
 
   return [
     e + (word.width / 2),
