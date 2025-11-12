@@ -3,7 +3,7 @@
 import { setGlobalWorkerSource, loadPDFFromFile, } from "./pdf-wrapper.js";
 import { DEFAULT_COL_SIZE, DEFAULT_COLS, DEFAULT_ROWS, MAX_COLS, MAX_ROWS, PAGE_MARGIN } from "./constants.js";
 import { Page } from "./page.js";
-import { clamp } from "./utils.js";
+import { clamp, downloadFile, writeCSV } from "./utils.js";
 
 /** Referenced HTML DOM elements. */
 const dom = Object.freeze({
@@ -152,6 +152,16 @@ dom.applyAllButton.addEventListener("click", () => {
   for (let p = state.currentPage; p < state.pages.length; p++) {
     state.pages[p].copyFrom(template);
   }
+});
+
+// Extract data to csv
+dom.extractButton.addEventListener("click", () => {
+  dom.extractButton.innerText = "Extracting...";
+
+  const csv = writeCSV(state.pages);
+  downloadFile("output.csv", csv);
+
+  dom.extractButton.innerText = "Extract";
 });
 
 // As soon as rendered, set PDF global worker source

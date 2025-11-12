@@ -281,6 +281,73 @@ export class Page {
   }
 
   /**
+   * Converts the words on this page into a csv file format with the specified number of columns.
+   * @param {int} columns The number of columns in the full csv file.
+   * @returns This table's CSV data.
+   */
+  getCSV(columns) {
+    if (columns < this.colCount) {
+      throw "Not enough columns!";
+    }
+
+    const table = Array.from(Array(this.rowCount), () => new Array(columns).fill(""));
+
+    // Add each word
+    for (const word of this.#words) {
+      // Check not too far left/up
+      if (word.x < this.tableX || word.y < this.tableY) continue;
+
+      // Determine which column this word is in
+      let colIdx = -1;
+      let cumLength = 0;
+
+      for (let c = 0; c < this.colCount; c++) {
+        cumLength += this.getColWidth(c);
+
+        if (word.x < this.tableX + cumLength) {
+          colIdx = c;
+          break;
+        }
+      }
+
+      // Determine which row this word is in
+      let rowIdx = -1;
+      cumLength = 0;
+
+      for (let r = 0; r < this.rowCount; r++) {
+        cumLength += this.#rowHeight;
+
+        if (word.y < this.tableY + cumLength) {
+          rowIdx = r;
+          break;
+        }
+      }
+
+      // Check if inside table
+      if (colIdx === -1 || rowIdx === -1) continue;
+
+      // Add to table
+      table[rowIdx][colIdx] += word.content;
+    }
+
+    // Format into csv format
+    for (let r = 0; r < this.rowCount; r++) {
+      // Check if escape characters needed
+      for (let c = 0; c < columns; c++) {
+        let cell = table[r][c];
+
+        if (cell.indexOf(",") !== -1 || cell.indexOf("\n") !== -1 || cell.indexOf("\"") !== -1) {
+          table[r][c] = `"${cell.replaceAll("\'", "\"\"")}"`;
+        }
+      }
+
+      table[r] = table[r].join(",");
+    }
+
+    return table.join("\n");
+  }
+
+  /**
    * Detaches all event listeners, removes all elements.
    */
   destroy() {

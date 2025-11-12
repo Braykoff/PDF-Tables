@@ -28,3 +28,59 @@ export function clamp(val, min, max) {
 export function within(value, target, buffer) {
   return Math.abs(target - value) <= buffer;
 }
+
+/**
+ * Converts a list of pages to a CSV file.
+ * @param {*} pages The list of Pages to use.
+ * @returns The contents of the CSV file.
+ */
+export function writeCSV(pages) {
+  if (pages.length === 0) return "";
+
+  // Determine the max number of cols
+  let maxCols = pages[0].colCount;
+
+  for (let c = 1; c < pages.length; c++) {
+    maxCols = Math.max(maxCols, pages[c].colCount);
+  }
+
+  if (maxCols === 0) return "";
+
+  // Format header
+  let out = "Column0";
+
+  for (let c = 1; c < maxCols; c++) {
+    out += `,Column${c}`;
+  }
+
+  // Append each page
+  for (const p of pages) {
+    out += "\n";
+    out += p.getCSV(maxCols);
+  }
+  
+  return out;
+}
+
+/**
+ * Downloads the specified content with the given name.
+ * @param {string} name The name of the file when it downloads.
+ * @param {string} content The content of the file.
+ * @param {string} type The type of the file (Optional, default "text/csv").
+ */
+export function downloadFile(name, content, type="text/csv") {
+  // Create Blob for the file
+  const blob = new Blob([content], { type: type });
+  const url = URL.createObjectURL(blob);
+
+  // Create temporary link, click
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+
+  // Clean up Blob and link
+  a.remove();
+  URL.revokeObjectURL(url);
+}
