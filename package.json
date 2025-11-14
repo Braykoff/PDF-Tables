@@ -3,8 +3,7 @@
   "version": "1.0.0",
   "description": "Find and extract tables embedded in PDF documents",
   "scripts": {
-    "build-fixed": "esbuild src/fixed-row/main.js --bundle --minify --sourcemap --outfile=dist/bundle-fixed-rows.min.js --target=esnext --format=esm",
-    "build-detected": "esbuild src/detected-row/main.js --bundle --minify --sourcemap --outfile=dist/bundle-detected-rows.min.js --target=esnext --format=esm"
+    "build": "esbuild src/main.js --bundle --minify --sourcemap --outfile=dist/bundled.min.js --target=esnext --format=esm"
   },
   "repository": {
     "type": "git",

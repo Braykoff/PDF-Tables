@@ -1,5 +1,5 @@
 import { PDF_JS_GLOBAL_WORKER_SOURCE } from "./constants.js";
-import * as pdfjsLib from '../../pdfjs-5.4.394-legacy-dist/build/pdf.mjs';
+import * as pdfjsLib from '../pdfjs-5.4.394-legacy-dist/build/pdf.mjs';
 
 /**
  * Sets the PDF.JS global worker source.

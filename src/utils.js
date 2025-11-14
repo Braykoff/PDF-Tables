@@ -4,7 +4,7 @@
  * @returns True if the string is empty.
  */
 export function isStringEmpty(string) {
-  return (string === undefined || string === null || string.trim().length === 0);
+  return (string === undefined || string === null || typeof string !== "string" || string.trim().length === 0);
 }
 
 /**
@@ -60,19 +60,6 @@ export function writeCSV(pages) {
   }
 
   return out;
-}
-
-/**
- * Checks if a cell in a CSV table needs escaping, and escapes it if it does.
- * @param {string} cell The content of a single CSV cell to check.
- * @returns The escaped cell, in CSV format.
- */
-export function escapeCSV(cell) {
-  if (cell.indexOf(",") !== -1 || cell.indexOf("\n") !== -1 || cell.indexOf("\"") !== -1) {
-    return `"${cell.replaceAll("\"", "\"\"")}"`;
-  } else {
-    return cell;
-  }
 }
 
 /**

@@ -1,25 +1,46 @@
-import { DEFAULT_COL_SIZE, DEFAULT_COLS, MAX_COLS, MIN_COL_SIZE, TEXT_BOX_COLOR, TEXT_BOX_RADIUS } from "./constants.js";
+import { DEFAULT_COL_SIZE, DEFAULT_COLS, DEFAULT_TABLE_HEIGHT, MAX_COLS, MIN_COL_SIZE, MIN_TABLE_HEIGHT, TEXT_BOX_COLOR, TEXT_BOX_RADIUS } from "./constants.js";
+import { InteractiveLayer } from "./interactive-layer.js";
 import { getTextCenter, renderPDFOntoCanvas } from "./pdf-wrapper.js";
-import { clamp, escapeCSV, isStringEmpty } from "./utils.js";
+import { clamp, isStringEmpty } from "./utils.js";
 
 /**
- * Base class to represents a single PDF Page, with tables and text box annotations.
- * Extended by FixedRowPage and DetectedRowPage classes.
+ * Checks if a cell in a CSV table needs escaping, and escapes it if it does.
+ * @param {string} cell The content of a single CSV cell to check.
+ * @returns The escaped cell, in CSV format.
  */
-export class BasePage {
+function escapeCSV(cell) {
+  if (cell.indexOf(",") !== -1 || cell.indexOf("\n") !== -1 || cell.indexOf("\"") !== -1) {
+    return `"${cell.replaceAll("\"", "\"\"")}"`;
+  } else {
+    return cell;
+  }
+}
+
+/**
+ * Represents a single PDF page, with tables and text box annotations.
+ */
+export class Page {
+  // MARK: Properties
+  // Page properties
   #idx;
   #width;
   #height;
   #words;
+
+  // Page elements
   #canvasContainer;
   #wordCanvas;
+  #interactiveLayer
   #currentPageSupplier;
 
+  // Table properties
   #columnWidths;
   #tableWidth;
+  #rowHeights;
+  #tableHeight;
   #tableCoords;
-  #interactiveLayer
 
+  // MARK: Construction
   /**
    * Creates a Page object. Use the async .create(...) method instead.
    * @param {*} pageContainer HTML DOM element containing every page.
@@ -29,10 +50,9 @@ export class BasePage {
    * @param {float} width The width of this page, px.
    * @param {float} height The height of this page, px.
    * @param {*} textContent A list of text boxes on this page (from page.getTextContent().items).
-   * @param {extends InteractiveLayer} InteractiveLayerClass The class or subclass of InteractiveLayer
    * to use.
    */
-  constructor(pageContainer, pageNum, currentPageSupplier, pdfCanvas, width, height, textContent, InteractiveLayerClass) {
+  constructor(pageContainer, pageNum, currentPageSupplier, pdfCanvas, width, height, textContent) {
     // Init default values
     this.#idx = pageNum;
     this.#width = width;
@@ -42,6 +62,8 @@ export class BasePage {
     // Init what is known about the table
     this.#columnWidths = Array(DEFAULT_COLS).fill(DEFAULT_COL_SIZE);
     this.#tableWidth = DEFAULT_COLS * DEFAULT_COL_SIZE;
+    this.#rowHeights = [DEFAULT_TABLE_HEIGHT];
+    this.#tableHeight = DEFAULT_TABLE_HEIGHT;
     this.#tableCoords = [5, 5];
 
     // Create page container
@@ -94,7 +116,8 @@ export class BasePage {
     });
 
     // Init interactive layer
-    this.#interactiveLayer = new InteractiveLayerClass(this);
+    this.#interactiveLayer = new InteractiveLayer(this);
+    this.forceRedraw();
   }
 
   /**
@@ -116,6 +139,15 @@ export class BasePage {
     return new this(pageContainer, pageNum, currentPageSupplier, canvas, width, height, textContent);
   }
 
+  /**
+   * Detaches all event listeners, removes all elements.
+   */
+  destroy() {
+    this.#interactiveLayer.detach();
+    this.#canvasContainer.remove();
+  }
+
+  // MARK: Appearance
   /**
    * Sets whether the text boxes are shown or not.
    * @param {Boolean} shown Whether the text boxes are shown or not.
@@ -140,9 +172,10 @@ export class BasePage {
     this.#canvasContainer.style.cursor = cursor;
   }
 
+  // MARK: Table properties
   /**
    * Clamps and sets the position of this table to a new position relative to the top left corner
-   * of the page.
+   * of the page. Does not redraw.
    * @param {float} x The x position of the table.
    * @param {float} y The y position of the table.
    */
@@ -153,28 +186,32 @@ export class BasePage {
   }
 
   /**
-   * Clamps and sets the width of a column of this table.
+   * Clamps and sets the width of a column of this table. Does not redraw.
    * @param {int} col The index of the column to set.
    * @param {float} width The width of the column, px.
    * @return The clamped width, px.
    */
   setColumnWidth(col, width) {
     width = clamp(width, MIN_COL_SIZE, this.width - this.tableX - this.tableWidth + this.getColWidth(col));;
-    let delta = width - this.#columnWidths[col];
+    let delta = width - this.getColWidth(col);
     this.#tableWidth += delta;
     this.#columnWidths[col] = width;
   }
 
   /**
-   * Clamps and sets the height of the table (and thus each row).
+   * Clamps and sets the height of the table. Resets all the row heights. Does not redraw.
    * @param {float} height The height of the entire table.
    */
-  setTableHeight(_height) {
-    throw "This is a base class, override this function.";
+  setTableHeight(height) {
+    height = clamp(height, MIN_TABLE_HEIGHT, this.height - this.tableY);
+
+    // Drop all the rows in this table.
+    this.#tableHeight = height;
+    this.#rowHeights = [height];
   }
 
   /**
-   * Clamps and sets a new number of columns for this page.
+   * Clamps and sets a new number of columns for this page. Does not redraw.
    * @param {int} newColCount The new number of columns.
    * @returns The clamped number of columns.
    */
@@ -213,13 +250,12 @@ export class BasePage {
       }
     }
 
-    // Redraw
-    this.forceRedraw();
     return newColCount;
   }
 
+  // MARK: Table actions
   /**
-   * Forces the interactive layer to stop dragging and redraw.
+   * Forces the interactive layer to stop dragging and redraw. Does redraw.
    */
   forceRedraw() {
     this.#interactiveLayer.stopDragging();
@@ -227,8 +263,59 @@ export class BasePage {
   }
 
   /**
-   * Attempts to copy the table layout of another page.
-   * @param {BasePage} template The page to copy from. 
+   * Auto detects rows in the table. This is done by looking at each of y positions of the text
+   * boxes in the index (first) column. Does redraw.
+   */
+  detectRows() {
+    // TODO fix
+    let indexRowStop = this.tableX + this.getColWidth(0);
+    let rowYPos = [];
+
+    // Get the y position of each word in index row
+    for (const word of this.#words) {
+      if (word.y >= this.tableY && word.y <= this.tableY + this.#tableHeight && word.x >= this.tableX && word.x <= indexRowStop) {
+        rowYPos.push(word.y);
+      }
+    }
+
+    if (rowYPos.length < 2) {
+      // Only one row (or zero)
+      console.log(`Tried to detect rows for page ${this.index}, but only ${rowYPos.length} rows found.`);
+      this.#rowHeights = [this.#tableHeight];
+      this.forceRedraw();
+      return;
+    }
+
+    // Find minimum distance between two rows
+    let minRowSize = rowYPos[1] - rowYPos[0];
+
+    for (let r = 2; r < rowYPos.length; r++) {
+      minRowSize = Math.min(minRowSize, rowYPos[r] - rowYPos[r - 1]);
+    }
+
+    // Each row ends at the previous text box y coord minus the default (minimum) row height / 2
+    this.#rowHeights = [];
+    let cumHeight = 0;
+
+    for (let r = 1; r <= rowYPos.length; r++) {
+      if (r === rowYPos.length) {
+        // This is the last row, use bottom border
+        this.#rowHeights.push(this.#tableHeight - cumHeight);
+      } else {
+        // This is not the last row, use next row
+        let h = rowYPos[r] - this.tableY - cumHeight - (minRowSize / 2);
+        cumHeight += h;
+        this.#rowHeights.push(h);
+      }
+    }
+
+    // Redraw
+    this.forceRedraw();
+  }
+
+  /**
+   * Attempts to copy the table layout of another page. Does redraw.
+   * @param {Page} template The page to copy from. 
    */
   copyFrom(template) {
     this.setPosition(template.tableX, template.tableY);
@@ -241,14 +328,22 @@ export class BasePage {
       this.setColumnCount(c + 1);
       this.setColumnWidth(c, template.getColWidth(c));
     }
+
+    // Add height
+    this.setTableHeight(template.tableHeight);
+
+    // Redraw
+    this.forceRedraw();
   }
 
+  // MARK: CSV Formatting
   /**
    * Converts the words on this page into a csv file format with the specified number of columns.
    * @param {int} columns The number of columns in the full csv file.
    * @returns This table's CSV data.
    */
   getCSV(columns) {
+    // TODO
     if (columns < this.colCount) {
       throw "Not enough columns!";
     }
@@ -306,14 +401,7 @@ export class BasePage {
     return table.join("\n");
   }
 
-  /**
-   * Detaches all event listeners, removes all elements.
-   */
-  destroy() {
-    this.#interactiveLayer.detach();
-    this.#canvasContainer.remove();
-  }
-
+  // MARK: Getters
   /**
    * The width of this page, px.
    */
@@ -354,7 +442,7 @@ export class BasePage {
    * The number of rows in this page's table.
    */
   get rowCount() {
-    throw "This is a base class, override this function.";
+    return this.#rowHeights.length;
   }
 
   /**
@@ -389,7 +477,7 @@ export class BasePage {
    * Gets the total table height, px.
    */
   get tableHeight() {
-    throw "This is a base class, override this function.";
+    return this.#tableHeight;
   }
 
   /**
@@ -406,8 +494,8 @@ export class BasePage {
    * @param {int} row The index of the row.
    * @returns The height of the row, px.
    */
-  getRowHeight(_row) {
-    throw "This is a base class, override this function.";
+  getRowHeight(row) {
+    return this.#rowHeights[row];
   }
 
   /**
@@ -415,12 +503,5 @@ export class BasePage {
    */
   get pagesFromViewport() {
     return Math.abs(this.#currentPageSupplier() - this.#idx);
-  }
-
-  /**
-   * Gets the words, x, y coordinates in top-bottom, left-right order.
-   */
-  get words() {
-    return this.#words;
   }
 }

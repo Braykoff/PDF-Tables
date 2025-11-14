@@ -8,6 +8,5 @@ npx eslint src
 
 ## Build
 ```
-npm run build-fixed
-npm run build-detected
+npm run build
 ```

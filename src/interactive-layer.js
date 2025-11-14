@@ -1,5 +1,5 @@
-import { ACTIVE_TABLE_BORDER_COLOR, ACTIVE_TABLE_BORDER_WIDTH, MIN_COL_SIZE, NORMAL_TABLE_BORDER_COLOR, NORMAL_TABLE_BORDER_WIDTH, TABLE_HOVER_BUFFER, TABLE_SCALE_FACTOR } from "./constants.js";
-import { clamp, within } from "./utils.js";
+import { ACTIVE_TABLE_COLOR, ACTIVE_TABLE_BORDER_WIDTH, LABEL_FONT_SIZE, LABEL_VERTICAL_PADDING, MIN_COL_SIZE, NORMAL_TABLE_COLOR, NORMAL_TABLE_BORDER_WIDTH, TABLE_HOVER_BUFFER, TABLE_SCALE_FACTOR } from "./constants.js";
+import { clamp, isStringEmpty, within } from "./utils.js";
 
 /** Describes what is being dragged currently. */
 const DragDim = {
@@ -14,6 +14,28 @@ const DragState = {
   NONE: -1, // Nothing active
   HOVER: 0, // Being hovered
   DRAGGING: 1 // Actively dragging
+}
+
+/**
+ * Estimates the width of text with monospace Courier font. If text is undefined, null, or otherwise
+ * empty, it will return 0.
+ * @param {*} size The font size, px.
+ * @param {*} text The text.
+ * @returns The approximate width of the text, px.
+ */
+function fontSizeToWidth(size, text) {
+  if (isStringEmpty(text)) return 0;
+
+  return size * 0.6 * text.length;
+}
+
+/**
+ * Estimates the height of text with monospace Courier font.
+ * @param {*} size The font size, px.
+ * @returns The approximate height of the text, px.
+ */
+function fontSizeToHeight(size) {
+  return 0.75 * size;
 }
 
 /**
@@ -38,6 +60,7 @@ function cursorForDragDim(dim) {
  * Represents the interactive components of a page.
  */
 export class InteractiveLayer {
+  // MARK: Construction
   #page = undefined;
   #ctx = undefined;
   #activeDim = DragDim.NONE;
@@ -78,22 +101,7 @@ export class InteractiveLayer {
     }
   }
 
-  /**
-   * Sets the state, redrawing only if the state has changed.
-   * @param {DragState} newState The new state to use.
-   * @param {DragDim} newDim The new drag dimension to use.
-   * @param {int} newIdx The new drag index to use.
-   */
-  #setStateAndLazyRedraw(newState, newDim, newIdx) {
-    const needsRedraw = newState !== this.#state || newDim !== this.#activeDim || newIdx !== this.#activeIdx;
-
-    this.#state = newState;
-    this.#activeDim = newDim;
-    this.#activeIdx = newIdx;
-
-    if (needsRedraw) { this.redraw(); }
-  }
-
+  // MARK: Mouse detection
   /**
    * Converts an event's mouse coordinates to coordinates on the page.
    * @param {Event} evt The event to use.
@@ -155,6 +163,7 @@ export class InteractiveLayer {
     return [DragDim.WHOLE, 0];
   }
 
+  // MARK: Events
   /**
    * Handler for mouse move. Handles drag, hover logic.
    * @param {Event} evt Event.
@@ -235,12 +244,60 @@ export class InteractiveLayer {
     this.#setStateAndLazyRedraw(DragState.NONE, DragDim.NONE, -1);
   }
 
+  // MARK: Redraw
+  /**
+   * Sets the state, redrawing only if the state has changed.
+   * @param {DragState} newState The new state to use.
+   * @param {DragDim} newDim The new drag dimension to use.
+   * @param {int} newIdx The new drag index to use.
+   */
+  #setStateAndLazyRedraw(newState, newDim, newIdx) {
+    const needsRedraw = newState !== this.#state || newDim !== this.#activeDim || newIdx !== this.#activeIdx;
+
+    this.#state = newState;
+    this.#activeDim = newDim;
+    this.#activeIdx = newIdx;
+
+    if (needsRedraw) { this.redraw(); }
+  }
+
   /**
    * Redraws the entire table.
    */
   redraw() {
     // Clear
     this.#ctx.reset();
+
+    // Get index column label
+    let msg = null;
+
+    for (const text of ["INDEX", "IDX", "I"]) {
+      // 4px of padding
+      if (fontSizeToWidth(LABEL_FONT_SIZE, text.length) <= this.#page.getColWidth(0) - 4) {
+        msg = text;
+        break;
+      }
+    }
+
+    // Draw index column label
+    this.context.fillStyle = NORMAL_TABLE_COLOR;
+    this.context.fillRect(
+      this.page.tableX * TABLE_SCALE_FACTOR,
+      (this.page.tableY - fontSizeToHeight(LABEL_FONT_SIZE) - LABEL_VERTICAL_PADDING) * TABLE_SCALE_FACTOR,
+      this.#page.getColWidth(0) * TABLE_SCALE_FACTOR,
+      (fontSizeToHeight(LABEL_FONT_SIZE) + LABEL_VERTICAL_PADDING) * TABLE_SCALE_FACTOR
+    );
+
+    if (msg !== undefined) {
+      this.context.font = `bold ${LABEL_FONT_SIZE * TABLE_SCALE_FACTOR}px Courier New`;
+      this.context.fillStyle = "white";
+
+      this.context.fillText(
+        msg,
+        (this.page.tableX + (this.#page.getColWidth(0) - fontSizeToWidth(LABEL_FONT_SIZE, msg)) / 2) * TABLE_SCALE_FACTOR,
+        (this.page.tableY - LABEL_VERTICAL_PADDING / 2) * TABLE_SCALE_FACTOR
+      );
+    }
 
     // Draw horizontal (row) lines
     let cumHeight = 0;
@@ -252,7 +309,7 @@ export class InteractiveLayer {
       // Set stroke style
       const active = this.#state >= 0 && this.#activeDim === DragDim.ROW && this.#activeIdx === r;
       this.#ctx.lineWidth = (active ? ACTIVE_TABLE_BORDER_WIDTH : NORMAL_TABLE_BORDER_WIDTH) * TABLE_SCALE_FACTOR;
-      this.#ctx.strokeStyle = active ? ACTIVE_TABLE_BORDER_COLOR : NORMAL_TABLE_BORDER_COLOR;
+      this.#ctx.strokeStyle = active ? ACTIVE_TABLE_COLOR : NORMAL_TABLE_COLOR;
 
       // Draw line
       this.#ctx.beginPath();
@@ -276,7 +333,7 @@ export class InteractiveLayer {
       // Set stroke style
       const active = this.#state >= 0 && this.#activeDim === DragDim.COL && this.#activeIdx === c;
       this.#ctx.lineWidth = (active ? ACTIVE_TABLE_BORDER_WIDTH : NORMAL_TABLE_BORDER_WIDTH) * TABLE_SCALE_FACTOR;
-      this.#ctx.strokeStyle = active ? ACTIVE_TABLE_BORDER_COLOR : NORMAL_TABLE_BORDER_COLOR;
+      this.#ctx.strokeStyle = active ? ACTIVE_TABLE_COLOR : NORMAL_TABLE_COLOR;
 
       // Draw line
       this.#ctx.beginPath();
@@ -294,6 +351,7 @@ export class InteractiveLayer {
     this.#page.setCursor(cursorForDragDim(this.#activeDim));
   }
 
+  // MARK: Getters
   /**
    * Gets this layer's page.
    */
