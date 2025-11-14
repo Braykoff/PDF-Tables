@@ -1,5 +1,7 @@
-import { PDF_JS_GLOBAL_WORKER_SOURCE } from "./constants.js";
-import * as pdfjsLib from '../pdfjs-5.4.394-legacy-dist/build/pdf.mjs';
+import * as pdfjsLib from "../pdfjs-5.4.394-legacy-dist/build/pdf.mjs";
+
+/** Source url for PDF.JS global worker. */
+export const PDF_JS_GLOBAL_WORKER_SOURCE = "./pdfjs-5.4.394-legacy-dist/build/pdf.worker.mjs";
 
 /**
  * Sets the PDF.JS global worker source.
@@ -49,6 +51,6 @@ export function getTextCenter(word, pageHeight) {
 
   return [
     e + (word.width / 2),
-    pageHeight - (f + (height / 2))
+    pageHeight - (f + (height / 2)),
   ];
 }

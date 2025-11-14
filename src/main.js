@@ -6,6 +6,9 @@ import { Page } from "./page.js";
 import { loadPDFFromFile, setGlobalWorkerSource } from "./pdf-wrapper.js";
 import { downloadFile, writeCSV } from "./utils.js";
 
+/** Ratio between milliseconds and seconds. */
+const MILLISECONDS_TO_SECONDS = 1000;
+
 // Referenced HTML DOM elements.
 const dom = Object.freeze({
   fileInput: document.getElementById("fileInput"),
@@ -16,14 +19,14 @@ const dom = Object.freeze({
   applyAllButton: document.getElementById("applyToAllAction"),
   detectRowsButton: document.getElementById("detectRowsAction"),
   extractButton: document.getElementById("extractAction"),
-  pageContainer: document.getElementById("pageContainer")
+  pageContainer: document.getElementById("pageContainer"),
 });
 
 // Current app state
 const state = {
   currentPage: -1,
   pages: [],
-  textBoxesShown: false
+  textBoxesShown: false,
 };
 
 // Prevent right click everywhere
@@ -39,12 +42,12 @@ dom.fileInput.addEventListener("change", async () => {
   }
 
   const start = Date.now();
-  const rawFile = dom.fileInput.files[0]
+  const rawFile = dom.fileInput.files[0];
 
   // Display file name
   dom.fileTitle.innerText = rawFile.name;
   dom.fileTitle.title = rawFile.name;
-  document.title = "PDFTables - " + rawFile.name;
+  document.title = `PDFTables - ${  rawFile.name}`;
 
   // Reset canvas container
   dom.pageContainer.scrollTop = 0;
@@ -54,21 +57,25 @@ dom.fileInput.addEventListener("change", async () => {
     page.destroy();
   }
 
-  state.pages = []
+  state.pages = [];
 
   // Load PDF
-  let pdf = await loadPDFFromFile(rawFile);
+  const pdf = await loadPDFFromFile(rawFile);
   state.currentPage = 1;
 
   dom.pageCounter.innerText = `Page 1/${pdf.numPages}`;
   dom.columnEntry.value = DEFAULT_COLS;
 
+  /**
+   * Current page supplier, so pages know whether they need to rerender.
+   * @returns The current page from state.
+   */
   const currentPageSupplier = () => state.currentPage;
 
   // Load each page
   for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
     // Create page
-    let page = await Page.create(dom.pageContainer, pdf, currentPageSupplier, pageNum);
+    const page = await Page.create(dom.pageContainer, pdf, currentPageSupplier, pageNum);
     state.pages.push(page);
 
     page.setTextboxesShown(state.textBoxesShown);
@@ -77,8 +84,8 @@ dom.fileInput.addEventListener("change", async () => {
   // Now show PDF
   dom.pageContainer.style.visibility = "visible";
 
-  const elapsed = (Date.now() - start) / 1000; // seconds
-  console.log(`Loaded ${rawFile.name} with ${state.pages.length} pages in ${elapsed.toFixed(3)} seconds`);
+  const elapsed = (Date.now() - start) / MILLISECONDS_TO_SECONDS; // seconds
+  console.log(`Loaded ${rawFile.name} with ${state.pages.length} pages in ${elapsed.toFixed(2)} seconds`);
 });
 
 // MARK: Scroll handler
@@ -111,7 +118,7 @@ dom.pageContainer.addEventListener("scroll", () => {
 // When column input is changed, validate input and update table
 dom.columnEntry.addEventListener("change", () => {
   const page = state.pages[state.currentPage - 1];
-  if (page === undefined) return;
+  if (page === undefined) {return;}
 
   const clampedCols = page.setColumnCount(dom.columnEntry.value);
   page.forceRedraw();
@@ -123,7 +130,7 @@ dom.columnEntry.addEventListener("change", () => {
 dom.toggleTextBoxesButton.addEventListener("click", () => {
   state.textBoxesShown = !state.textBoxesShown;
 
-  dom.toggleTextBoxesButton.innerText = (state.textBoxesShown ? "Hide" : "Show") + " Textboxes";
+  dom.toggleTextBoxesButton.innerText = `${state.textBoxesShown ? "Hide" : "Show"  } Textboxes`;
 
   for (const p of state.pages) {
     p.setTextboxesShown(state.textBoxesShown);
@@ -133,7 +140,7 @@ dom.toggleTextBoxesButton.addEventListener("click", () => {
 // Apply to all following pages button
 dom.applyAllButton.addEventListener("click", () => {
   const template = state.pages[state.currentPage - 1];
-  if (template === undefined) return;
+  if (template === undefined) {return;}
 
   for (let p = state.currentPage; p < state.pages.length; p++) {
     state.pages[p].copyFrom(template);

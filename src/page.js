@@ -1,7 +1,26 @@
-import { DEFAULT_COL_SIZE, DEFAULT_COLS, DEFAULT_TABLE_HEIGHT, MAX_COLS, MIN_COL_SIZE, MIN_TABLE_HEIGHT, TEXT_BOX_COLOR, TEXT_BOX_RADIUS } from "./constants.js";
+import { DEFAULT_COLS, MIN_COL_SIZE } from "./constants.js";
 import { InteractiveLayer } from "./interactive-layer.js";
 import { getTextCenter, renderPDFOntoCanvas } from "./pdf-wrapper.js";
 import { clamp, isStringEmpty } from "./utils.js";
+
+// MARK: Constants
+/** Max number of columns. */
+const MAX_COLS = 50;
+
+/** Default column size, px. */
+const DEFAULT_COL_SIZE = 25;
+
+/** Default height of a table, px. */
+const DEFAULT_TABLE_HEIGHT = 40;
+
+/** Minimum height of a table, px. */
+const MIN_TABLE_HEIGHT = 2;
+
+/** Radius of the circles representing text boxes. */
+const TEXT_BOX_RADIUS = 2;
+
+/** Color of the circles representing text boxes. */
+const TEXT_BOX_COLOR = "red";
 
 /**
  * Checks if a cell in a CSV table needs escaping, and escapes it if it does.
@@ -30,7 +49,7 @@ export class Page {
   // Page elements
   #canvasContainer;
   #wordCanvas;
-  #interactiveLayer
+  #interactiveLayer;
   #currentPageSupplier;
 
   // Table properties
@@ -64,7 +83,7 @@ export class Page {
     this.#tableWidth = DEFAULT_COLS * DEFAULT_COL_SIZE;
     this.#rowHeights = [DEFAULT_TABLE_HEIGHT];
     this.#tableHeight = DEFAULT_TABLE_HEIGHT;
-    this.#tableCoords = [5, 5];
+    this.#tableCoords = [5, 5]; // eslint-disable-line no-magic-numbers
 
     // Create page container
     this.#canvasContainer = document.createElement("div");
@@ -99,7 +118,7 @@ export class Page {
         this.#words.push({
           content: word.str,
           x: pos[0],
-          y: pos[1]
+          y: pos[1],
         });
 
         // Render on canvas
@@ -111,7 +130,7 @@ export class Page {
 
     // Sort word list left-to-right, top-to-bottom
     this.#words.sort((a, b) => {
-      if (a.y !== b.y) return a.y - b.y;
+      if (a.y !== b.y) {return a.y - b.y;}
       return a.x - b.x;
     });
 
@@ -193,7 +212,7 @@ export class Page {
    */
   setColumnWidth(col, width) {
     width = clamp(width, MIN_COL_SIZE, this.width - this.tableX - this.tableWidth + this.getColWidth(col));;
-    let delta = width - this.getColWidth(col);
+    const delta = width - this.getColWidth(col);
     this.#tableWidth += delta;
     this.#columnWidths[col] = width;
   }
@@ -229,7 +248,7 @@ export class Page {
     } else {
       // Columns added
       let colDelta = newColCount - this.colCount;
-      let spaceOnLeft = this.width - this.tableX - this.#tableWidth;
+      const spaceOnLeft = this.width - this.tableX - this.#tableWidth;
 
       if (colDelta * DEFAULT_COL_SIZE <= spaceOnLeft) {
         // Fits perfectly
@@ -268,8 +287,8 @@ export class Page {
    */
   detectRows() {
     // TODO fix
-    let indexRowStop = this.tableX + this.getColWidth(0);
-    let rowYPos = [];
+    const indexRowStop = this.tableX + this.getColWidth(0);
+    const rowYPos = [];
 
     // Get the y position of each word in index row
     for (const word of this.#words) {
@@ -303,7 +322,7 @@ export class Page {
         this.#rowHeights.push(this.#tableHeight - cumHeight);
       } else {
         // This is not the last row, use next row
-        let h = rowYPos[r] - this.tableY - cumHeight - (minRowSize / 2);
+        const h = rowYPos[r] - this.tableY - cumHeight - (minRowSize / 2);
         cumHeight += h;
         this.#rowHeights.push(h);
       }
@@ -353,7 +372,7 @@ export class Page {
     // Add each word
     for (const word of this.#words) {
       // Check not too far left/up
-      if (word.x < this.tableX || word.y < this.tableY) continue;
+      if (word.x < this.tableX || word.y < this.tableY) {continue;}
 
       // Determine which column this word is in
       let colIdx = -1;
@@ -382,7 +401,7 @@ export class Page {
       }
 
       // Check if inside table
-      if (colIdx === -1 || rowIdx === -1) continue;
+      if (colIdx === -1 || rowIdx === -1) {continue;}
 
       // Add to table
       table[rowIdx][colIdx] += word.content;
@@ -403,28 +422,28 @@ export class Page {
 
   // MARK: Getters
   /**
-   * The width of this page, px.
+   * @returns width of this page, px.
    */
   get width() {
     return this.#width;
   }
 
   /**
-   * The height of this page, px.
+   * @returns height of this page, px.
    */
   get height() {
     return this.#height;
   }
 
   /**
-   * Gets the current page's bounding client rect (position relative to user's viewport).
+   * @returns The current page's bounding client rect (position relative to user's viewport).
    */
   get boundingClientRect() {
     return this.#canvasContainer.getBoundingClientRect();
   }
 
   /**
-   * The distance between this page and the user's viewport center, px.
+   * @returns The distance between this page and the user's viewport center, px.
    */
   get distToCenter() {
     const rect = this.boundingClientRect;
@@ -432,49 +451,49 @@ export class Page {
   }
 
   /**
-   * The index of this page (starting at 1).
+   * @returns The index of this page (starting at 1).
    */
   get index() {
     return this.#idx;
   }
 
   /**
-   * The number of rows in this page's table.
+   * @returns The number of rows in this page's table.
    */
   get rowCount() {
     return this.#rowHeights.length;
   }
 
   /**
-   * The number of cols in this page's table.
+   * @returns The number of cols in this page's table.
    */
   get colCount() {
     return this.#columnWidths.length;
   }
 
   /**
-   * Gets the x coordinate of the top-left corner of the table, relative to the page.
+   * @returns Gets the x coordinate of the top-left corner of the table, relative to the page.
    */
   get tableX() {
     return this.#tableCoords[0];
   }
 
   /**
-   * Gets the y coordinate of the top-left corner of the table, relative to the page.
+   * @returns The y coordinate of the top-left corner of the table, relative to the page.
    */
   get tableY() {
     return this.#tableCoords[1];
   }
 
   /**
-   * Gets the total table width, px.
+   * @returns The total table width, px.
    */
   get tableWidth() {
     return this.#tableWidth;
   }
 
   /**
-   * Gets the total table height, px.
+   * @returns The total table height, px.
    */
   get tableHeight() {
     return this.#tableHeight;
@@ -499,7 +518,7 @@ export class Page {
   }
 
   /**
-   * Gets the number of pages between this page and the page at the center of the viewport.
+   * @returns The number of pages between this page and the page at the center of the viewport.
    */
   get pagesFromViewport() {
     return Math.abs(this.#currentPageSupplier() - this.#idx);

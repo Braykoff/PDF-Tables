@@ -1,41 +1,75 @@
-import { ACTIVE_TABLE_COLOR, ACTIVE_TABLE_BORDER_WIDTH, LABEL_FONT_SIZE, LABEL_VERTICAL_PADDING, MIN_COL_SIZE, NORMAL_TABLE_COLOR, NORMAL_TABLE_BORDER_WIDTH, TABLE_HOVER_BUFFER, TABLE_SCALE_FACTOR } from "./constants.js";
+import { MIN_COL_SIZE } from "./constants.js";
 import { clamp, isStringEmpty, within } from "./utils.js";
+
+// MARK: Constants
+/** Multiplier for table canvas sizing (ie, resolution). */
+const TABLE_SCALE_FACTOR = 2;
+
+/** Default table border width, px */
+const NORMAL_TABLE_BORDER_WIDTH = 1.5;
+
+/** Table border width while interacting, px. */
+const ACTIVE_TABLE_BORDER_WIDTH = 4;
+
+/** Default table color. */
+const NORMAL_TABLE_COLOR = "navy";
+
+/** Table color while interacting. */
+const ACTIVE_TABLE_COLOR = "blue";
+
+/** Distance cursor can be from element to still be "hovering", px. */
+const TABLE_HOVER_BUFFER = 2;
+
+/** Font size of index column label, px. */
+const LABEL_FONT_SIZE = 10;
+
+/** Padding above and below the index column label, px. */
+const LABEL_VERTICAL_PADDING = 3;
+
+/** Padding left and right the index column label, px. */
+const LABEL_HORIZONTAL_PADDING = 4;
+
+/** Ratio between a character's width and the font size for monospace Courier New font*/
+const COURIER_NEW_SIZE_TO_WIDTH_RATIO = 0.6;
+
+/** Ratio between a character's height and the font size for monospace Courier New font*/
+const COURIER_NEW_SIZE_TO_HEIGHT_RATIO = 0.75;
 
 /** Describes what is being dragged currently. */
 const DragDim = {
   NONE: -1, // No active drag dimension
   COL: 0, // Dragging a column border (vertical line)
   ROW: 1, // Dragging a row border (horizontal line)
-  WHOLE: 2 // Dragging whole table
-}
+  WHOLE: 2, // Dragging whole table
+};
 
 /** Describe the state  */
 const DragState = {
   NONE: -1, // Nothing active
   HOVER: 0, // Being hovered
-  DRAGGING: 1 // Actively dragging
-}
+  DRAGGING: 1, // Actively dragging
+};
 
 /**
- * Estimates the width of text with monospace Courier font. If text is undefined, null, or otherwise
+ * Estimates the width of text with monospace Courier New font. If text is undefined, null, or otherwise
  * empty, it will return 0.
  * @param {*} size The font size, px.
  * @param {*} text The text.
  * @returns The approximate width of the text, px.
  */
 function fontSizeToWidth(size, text) {
-  if (isStringEmpty(text)) return 0;
+  if (isStringEmpty(text)) {return 0;}
 
-  return size * 0.6 * text.length;
+  return size * COURIER_NEW_SIZE_TO_WIDTH_RATIO * text.length;
 }
 
 /**
- * Estimates the height of text with monospace Courier font.
+ * Estimates the height of text with monospace Courier New font.
  * @param {*} size The font size, px.
  * @returns The approximate height of the text, px.
  */
 function fontSizeToHeight(size) {
-  return 0.75 * size;
+  return COURIER_NEW_SIZE_TO_HEIGHT_RATIO * size;
 }
 
 /**
@@ -45,14 +79,14 @@ function fontSizeToHeight(size) {
  */
 function cursorForDragDim(dim) {
   switch (dim) {
-    case DragDim.COL:
-      return "col-resize";
-    case DragDim.ROW:
-      return "row-resize";
-    case DragDim.WHOLE:
-      return "move";
-    default:
-      return "";
+  case DragDim.COL:
+    return "col-resize";
+  case DragDim.ROW:
+    return "row-resize";
+  case DragDim.WHOLE:
+    return "move";
+  default:
+    return "";
   }
 }
 
@@ -94,11 +128,12 @@ export class InteractiveLayer {
     document.addEventListener("mouseup", mouseUpListener);
 
     // Create function to remove event listeners
+    /** Detaches all event listeners. */
     this.detach = function () {
       document.removeEventListener("mousemove", mouseMoveListener);
       document.removeEventListener("mousedown", mouseDownListener);
       document.removeEventListener("mouseup", mouseUpListener);
-    }
+    };
   }
 
   // MARK: Mouse detection
@@ -111,7 +146,7 @@ export class InteractiveLayer {
     const rect = this.#page.boundingClientRect;
     return {
       x: evt.clientX - rect.x,
-      y: evt.clientY - rect.y
+      y: evt.clientY - rect.y,
     };
   }
 
@@ -184,13 +219,13 @@ export class InteractiveLayer {
           // A column is being dragged left/right
           if (this.#activeIdx === 0) {
             // The first border is being dragged left, need to adjust the table's x position
-            let clampedDeltaX = clamp(deltas.x, -this.#page.tableX, this.#page.getColWidth(0) - MIN_COL_SIZE);
+            const clampedDeltaX = clamp(deltas.x, -this.#page.tableX, this.#page.getColWidth(0) - MIN_COL_SIZE);
 
             this.#page.setPosition(this.#page.tableX + clampedDeltaX, this.#page.tableY);
             this.#page.setColumnWidth(0, this.#page.getColWidth(0) - clampedDeltaX);
           } else {
             // Simply add to its width
-            let idx = this.#activeIdx - 1;
+            const idx = this.#activeIdx - 1;
             this.#page.setColumnWidth(idx, this.#page.getColWidth(idx) + deltas.x);
           }
         } else if (this.#activeDim === DragDim.ROW) {
@@ -272,30 +307,29 @@ export class InteractiveLayer {
     let msg = null;
 
     for (const text of ["INDEX", "IDX", "I"]) {
-      // 4px of padding
-      if (fontSizeToWidth(LABEL_FONT_SIZE, text.length) <= this.#page.getColWidth(0) - 4) {
+      if (fontSizeToWidth(LABEL_FONT_SIZE, text.length) <= this.#page.getColWidth(0) - LABEL_HORIZONTAL_PADDING) {
         msg = text;
         break;
       }
     }
 
     // Draw index column label
-    this.context.fillStyle = NORMAL_TABLE_COLOR;
-    this.context.fillRect(
+    this.#ctx.fillStyle = NORMAL_TABLE_COLOR;
+    this.#ctx.fillRect(
       this.page.tableX * TABLE_SCALE_FACTOR,
       (this.page.tableY - fontSizeToHeight(LABEL_FONT_SIZE) - LABEL_VERTICAL_PADDING) * TABLE_SCALE_FACTOR,
       this.#page.getColWidth(0) * TABLE_SCALE_FACTOR,
-      (fontSizeToHeight(LABEL_FONT_SIZE) + LABEL_VERTICAL_PADDING) * TABLE_SCALE_FACTOR
+      (fontSizeToHeight(LABEL_FONT_SIZE) + LABEL_VERTICAL_PADDING) * TABLE_SCALE_FACTOR,
     );
 
     if (msg !== undefined) {
-      this.context.font = `bold ${LABEL_FONT_SIZE * TABLE_SCALE_FACTOR}px Courier New`;
-      this.context.fillStyle = "white";
+      this.#ctx.font = `bold ${LABEL_FONT_SIZE * TABLE_SCALE_FACTOR}px Courier New`;
+      this.#ctx.fillStyle = "white";
 
-      this.context.fillText(
+      this.#ctx.fillText(
         msg,
         (this.page.tableX + (this.#page.getColWidth(0) - fontSizeToWidth(LABEL_FONT_SIZE, msg)) / 2) * TABLE_SCALE_FACTOR,
-        (this.page.tableY - LABEL_VERTICAL_PADDING / 2) * TABLE_SCALE_FACTOR
+        (this.page.tableY - LABEL_VERTICAL_PADDING / 2) * TABLE_SCALE_FACTOR,
       );
     }
 
@@ -353,16 +387,9 @@ export class InteractiveLayer {
 
   // MARK: Getters
   /**
-   * Gets this layer's page.
+   * @returns This layer's page.
    */
   get page() {
     return this.#page;
-  }
-
-  /**
-   * Gets this layer's canvas 2d context.
-   */
-  get context() {
-    return this.#ctx;
   }
 }
