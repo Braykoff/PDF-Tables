@@ -57,6 +57,7 @@ export default defineConfig([
       "prefer-arrow-callback": "error",
       "prefer-template": "error",
       "no-var": "error",
+      "eqeqeq": "error",
     },
   },
 ]);

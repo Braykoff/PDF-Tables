@@ -36,11 +36,12 @@ const COURIER_NEW_SIZE_TO_WIDTH_RATIO = 0.6;
 const COURIER_NEW_SIZE_TO_HEIGHT_RATIO = 0.75;
 
 /** Describes what is being dragged currently. */
-const DragDim = {
-  NONE: -1, // No active drag dimension
+const DragItem = {
+  NONE: -1, // No active drag item
   COL: 0, // Dragging a column border (vertical line)
   ROW: 1, // Dragging a row border (horizontal line)
   WHOLE: 2, // Dragging whole table
+  SELECTION_BOX: 3, // Dragging a selection box
 };
 
 /** Describe the state  */
@@ -53,19 +54,19 @@ const DragState = {
 /**
  * Estimates the width of text with monospace Courier New font. If text is undefined, null, or otherwise
  * empty, it will return 0.
- * @param {*} size The font size, px.
- * @param {*} text The text.
+ * @param {int} size The font size, px.
+ * @param {string} text The text.
  * @returns The approximate width of the text, px.
  */
 function fontSizeToWidth(size, text) {
-  if (isStringEmpty(text)) {return 0;}
+  if (isStringEmpty(text)) { return 0; }
 
   return size * COURIER_NEW_SIZE_TO_WIDTH_RATIO * text.length;
 }
 
 /**
  * Estimates the height of text with monospace Courier New font.
- * @param {*} size The font size, px.
+ * @param {int} size The font size, px.
  * @returns The approximate height of the text, px.
  */
 function fontSizeToHeight(size) {
@@ -73,18 +74,20 @@ function fontSizeToHeight(size) {
 }
 
 /**
- * Determines the cursor depending on the drag dimension.
- * @param {DragDim} dim The drag dimension.
+ * Determines the cursor depending on the drag item.
+ * @param {DragItem} item The drag item.
  * @returns The CSS cursor.
  */
-function cursorForDragDim(dim) {
-  switch (dim) {
-  case DragDim.COL:
+function cursorForDragItem(item) {
+  switch (item) {
+  case DragItem.COL:
     return "col-resize";
-  case DragDim.ROW:
+  case DragItem.ROW:
     return "row-resize";
-  case DragDim.WHOLE:
+  case DragItem.WHOLE:
     return "move";
+  case DragItem.SELECTION_BOX:
+    return "crosshair";
   default:
     return "";
   }
@@ -97,17 +100,25 @@ export class InteractiveLayer {
   // MARK: Construction
   #page = undefined;
   #ctx = undefined;
-  #activeDim = DragDim.NONE;
+  #bottomBar = undefined;
+  #bottomBarContent = undefined;
+
+  #activeItem = DragItem.NONE;
   #activeIdx = -1; // index of the object being dragged
   #state = DragState.NONE;
-  #lastMousePose = undefined; // Coordinate of mouse relative to page at last move while dragging.
+  #firstMousePos = undefined; // Coordinate of mouse relative to page first while dragging
+  #lastMousePos = undefined; // Coordinate of mouse relative to page at last move while dragging.
 
   /**
    * Creates a DraggableTable object.
    * @param {BasePage} page The page object for this table.
+   * @param {Element} bottomBar The HTML bottom bar containing div.
+   * @param {Element} bottomBarContent The HTML bottom bar text span.
    */
-  constructor(page) {
+  constructor(page, bottomBar, bottomBarContent) {
     this.#page = page;
+    this.#bottomBar = bottomBar;
+    this.#bottomBarContent = bottomBarContent;
 
     // Create our canvas
     const canvas = document.createElement("canvas");
@@ -124,14 +135,14 @@ export class InteractiveLayer {
     const mouseUpListener = this.stopDragging.bind(this);
 
     document.addEventListener("mousemove", mouseMoveListener);
-    document.addEventListener("mousedown", mouseDownListener);
+    canvas.addEventListener("mousedown", mouseDownListener);
     document.addEventListener("mouseup", mouseUpListener);
 
     // Create function to remove event listeners
     /** Detaches all event listeners. */
     this.detach = function () {
       document.removeEventListener("mousemove", mouseMoveListener);
-      document.removeEventListener("mousedown", mouseDownListener);
+      canvas.removeEventListener("mousedown", mouseDownListener);
       document.removeEventListener("mouseup", mouseUpListener);
     };
   }
@@ -154,7 +165,7 @@ export class InteractiveLayer {
    * Determines if the mouse is hovering over any part of the table, and returns the type/index of
    * the element being hovered.
    * @param {Dict} mousePos The position of the mouse relative to the top left corner of the page.
-   * @returns The type (DragDim) and index of the component being hovered, or null if not being hovered.
+   * @returns The type (DragItem) and index of the component being hovered, or null if not being hovered.
    */
   #getIsHovering(mousePos) {
     // Bottom right corner of table
@@ -171,10 +182,10 @@ export class InteractiveLayer {
     // Check if intercepting top or bottom row (horizontal) lines
     if (within(mousePos.y, this.#page.tableY, TABLE_HOVER_BUFFER)) {
       // Intercepting top row line
-      return [DragDim.ROW, 0];
+      return [DragItem.ROW, 0];
     } else if (within(mousePos.y, brCorner[1], TABLE_HOVER_BUFFER)) {
       // Intercepting bottom row line
-      return [DragDim.ROW, this.#page.rowCount];
+      return [DragItem.ROW, this.#page.rowCount];
     }
 
     // Check if intercepting column (vertical) lines
@@ -185,7 +196,7 @@ export class InteractiveLayer {
 
       if (within(mousePos.x, x, TABLE_HOVER_BUFFER)) {
         // Intercepting this column line
-        return [DragDim.COL, c];
+        return [DragItem.COL, c];
       }
 
       // Accumulate column widths
@@ -195,7 +206,7 @@ export class InteractiveLayer {
     }
 
     // Intercepting table but no lines
-    return [DragDim.WHOLE, 0];
+    return [DragItem.WHOLE, 0];
   }
 
   // MARK: Events
@@ -204,58 +215,68 @@ export class InteractiveLayer {
    * @param {Event} evt Event.
    */
   #mouseMove(evt) {
-    if (this.#page.pagesFromViewport > 1) {
-      // Too far away, don't even check anything
-      this.stopDragging();
-    } else {
-      // Get mouse relative to page 
-      const pos = this.#getMousePosOnPage(evt);
+    // Get mouse relative to page 
+    const pos = this.#getMousePosOnPage(evt);
 
-      if (this.#state === DragState.DRAGGING) {
-        // We are actively being dragged
-        const deltas = { x: pos.x - this.#lastMousePose.x, y: pos.y - this.#lastMousePose.y };
+    if (this.#state === DragState.DRAGGING) {
+      // We are actively being dragged
+      const deltas = { x: pos.x - this.#lastMousePos.x, y: pos.y - this.#lastMousePos.y };
 
-        if (this.#activeDim === DragDim.COL) {
-          // A column is being dragged left/right
-          if (this.#activeIdx === 0) {
-            // The first border is being dragged left, need to adjust the table's x position
-            const clampedDeltaX = clamp(deltas.x, -this.#page.tableX, this.#page.getColWidth(0) - MIN_COL_SIZE);
+      switch (this.#activeItem) {
+      case DragItem.COL: {
+        // A column is being dragged left/right
+        if (this.#activeIdx === 0) {
+          // The first border is being dragged left, need to adjust the table's x position
+          const clampedDeltaX = clamp(deltas.x, -this.#page.tableX, this.#page.getColWidth(0) - MIN_COL_SIZE);
 
-            this.#page.setPosition(this.#page.tableX + clampedDeltaX, this.#page.tableY);
-            this.#page.setColumnWidth(0, this.#page.getColWidth(0) - clampedDeltaX);
-          } else {
-            // Simply add to its width
-            const idx = this.#activeIdx - 1;
-            this.#page.setColumnWidth(idx, this.#page.getColWidth(idx) + deltas.x);
-          }
-        } else if (this.#activeDim === DragDim.ROW) {
-          // A row is being dragged up/down
-          if (this.#activeIdx === 0) {
-            // The top border is being dragged up, need to adjust the table's y position
-            this.#page.setPosition(this.#page.tableX, this.#page.tableY + deltas.y);
-            this.#page.setTableHeight(this.#page.tableHeight - deltas.y);
-          } else {
-            // The bottom border is being dragged down
-            this.#page.setTableHeight(this.#page.tableHeight + deltas.y);
-          }
+          this.#page.setPosition(this.#page.tableX + clampedDeltaX, this.#page.tableY);
+          this.#page.setColumnWidth(0, this.#page.getColWidth(0) - clampedDeltaX);
         } else {
-          // The whole table is being dragged
-          this.#page.setPosition(this.#page.tableX + deltas.x, this.#page.tableY + deltas.y);
+          // Simply add to its width
+          const idx = this.#activeIdx - 1;
+          this.#page.setColumnWidth(idx, this.#page.getColWidth(idx) + deltas.x);
         }
+        break;
+      }
+      case DragItem.ROW: {
+        // A row is being dragged up/down
+        if (this.#activeIdx === 0) {
+          // The top border is being dragged up, need to adjust the table's y position
+          this.#page.setPosition(this.#page.tableX, this.#page.tableY + deltas.y);
+          this.#page.setTableHeight(this.#page.tableHeight - deltas.y);
+        } else {
+          // The bottom border is being dragged down
+          this.#page.setTableHeight(this.#page.tableHeight + deltas.y);
+        }
+        break;
+      }
+      case DragItem.WHOLE: {
+        // The whole table is being dragged
+        this.#page.setPosition(this.#page.tableX + deltas.x, this.#page.tableY + deltas.y);
+        break;
+      }
+      case DragItem.SELECTION_BOX: {
+        // Determine the number of words intercepted
+        const wordCount = this.#page.getWordsBoundedBy(this.#firstMousePos, pos);
+        this.#bottomBarContent.innerText = `${wordCount} textbox${wordCount === 1 ? "" : "es"} selected`;
+        this.#bottomBar.style.visibility = "visible";
 
-        this.#lastMousePose = pos;
-        this.redraw();
+        break;
+      }
+      }
+
+      this.#lastMousePos = pos;
+      this.redraw();
+    } else if (pos.x >= 0 && pos.x <= this.#page.width && pos.y >= 0 && pos.y <= this.#page.height) {
+      // Check hovering?
+      const hover = this.#getIsHovering(pos);
+
+      if (hover === null) {
+        // Nothing hovering
+        this.#setStateAndLazyRedraw(DragState.NONE, DragItem.NONE, -1);
       } else {
-        // Check hovering?
-        const hover = this.#getIsHovering(pos);
-
-        if (hover === null) {
-          // Nothing hovering
-          this.#setStateAndLazyRedraw(DragState.NONE, DragDim.NONE, -1);
-        } else {
-          // Something is being hovered
-          this.#setStateAndLazyRedraw(DragState.HOVER, hover[0], hover[1]);
-        }
+        // Something is being hovered
+        this.#setStateAndLazyRedraw(DragState.HOVER, hover[0], hover[1]);
       }
     }
   }
@@ -265,10 +286,15 @@ export class InteractiveLayer {
    * @param {Event} evt Event.
    */
   #mouseDown(evt) {
+    this.#firstMousePos = this.#getMousePosOnPage(evt);
+    this.#lastMousePos = this.#firstMousePos;
+      
     if (this.#state === DragState.HOVER) {
       // Hovering, switch to dragging
-      this.#lastMousePose = this.#getMousePosOnPage(evt);
-      this.#setStateAndLazyRedraw(DragState.DRAGGING, this.#activeDim, this.#activeIdx);
+      this.#setStateAndLazyRedraw(DragState.DRAGGING, this.#activeItem, this.#activeIdx);
+    } else if (this.#state === DragState.NONE) {
+      // Not hovering, switch to selection box
+      this.#setStateAndLazyRedraw(DragState.DRAGGING, DragItem.SELECTION_BOX, 0);
     }
   }
 
@@ -276,21 +302,22 @@ export class InteractiveLayer {
    * Stops all dragging, lazily redrawing the table.
    */
   stopDragging() {
-    this.#setStateAndLazyRedraw(DragState.NONE, DragDim.NONE, -1);
+    this.#setStateAndLazyRedraw(DragState.NONE, DragItem.NONE, -1);
+    this.#bottomBar.style.visibility = "hidden";
   }
 
   // MARK: Redraw
   /**
    * Sets the state, redrawing only if the state has changed.
    * @param {DragState} newState The new state to use.
-   * @param {DragDim} newDim The new drag dimension to use.
+   * @param {DragItem} newItem The new drag item to use.
    * @param {int} newIdx The new drag index to use.
    */
-  #setStateAndLazyRedraw(newState, newDim, newIdx) {
-    const needsRedraw = newState !== this.#state || newDim !== this.#activeDim || newIdx !== this.#activeIdx;
+  #setStateAndLazyRedraw(newState, newItem, newIdx) {
+    const needsRedraw = newState !== this.#state || newItem !== this.#activeItem || newIdx !== this.#activeIdx;
 
     this.#state = newState;
-    this.#activeDim = newDim;
+    this.#activeItem = newItem;
     this.#activeIdx = newIdx;
 
     if (needsRedraw) { this.redraw(); }
@@ -307,7 +334,7 @@ export class InteractiveLayer {
     let msg = null;
 
     for (const text of ["INDEX", "IDX", "I"]) {
-      if (fontSizeToWidth(LABEL_FONT_SIZE, text.length) <= this.#page.getColWidth(0) - LABEL_HORIZONTAL_PADDING) {
+      if (fontSizeToWidth(LABEL_FONT_SIZE, text) <= this.#page.getColWidth(0) - LABEL_HORIZONTAL_PADDING) {
         msg = text;
         break;
       }
@@ -341,7 +368,7 @@ export class InteractiveLayer {
       y *= TABLE_SCALE_FACTOR;
 
       // Set stroke style
-      const active = this.#state >= 0 && this.#activeDim === DragDim.ROW && this.#activeIdx === r;
+      const active = this.#state >= 0 && this.#activeItem === DragItem.ROW && this.#activeIdx === r;
       this.#ctx.lineWidth = (active ? ACTIVE_TABLE_BORDER_WIDTH : NORMAL_TABLE_BORDER_WIDTH) * TABLE_SCALE_FACTOR;
       this.#ctx.strokeStyle = active ? ACTIVE_TABLE_COLOR : NORMAL_TABLE_COLOR;
 
@@ -365,7 +392,7 @@ export class InteractiveLayer {
       x *= TABLE_SCALE_FACTOR;
 
       // Set stroke style
-      const active = this.#state >= 0 && this.#activeDim === DragDim.COL && this.#activeIdx === c;
+      const active = this.#state >= 0 && this.#activeItem === DragItem.COL && this.#activeIdx === c;
       this.#ctx.lineWidth = (active ? ACTIVE_TABLE_BORDER_WIDTH : NORMAL_TABLE_BORDER_WIDTH) * TABLE_SCALE_FACTOR;
       this.#ctx.strokeStyle = active ? ACTIVE_TABLE_COLOR : NORMAL_TABLE_COLOR;
 
@@ -381,8 +408,21 @@ export class InteractiveLayer {
       }
     }
 
+    // Draw selection box
+    if (this.#state === DragState.DRAGGING && this.#activeItem === DragItem.SELECTION_BOX) {
+      this.#ctx.globalAlpha = 0.4;
+      this.#ctx.fillStyle = "gray";
+      this.#ctx.fillRect(
+        this.#firstMousePos.x * TABLE_SCALE_FACTOR, 
+        this.#firstMousePos.y * TABLE_SCALE_FACTOR, 
+        (this.#lastMousePos.x - this.#firstMousePos.x) * TABLE_SCALE_FACTOR, 
+        (this.#lastMousePos.y - this.#firstMousePos.y) * TABLE_SCALE_FACTOR,
+      );
+      this.#ctx.globalAlpha = 1;
+    }
+
     // Set pointer
-    this.#page.setCursor(cursorForDragDim(this.#activeDim));
+    this.#page.setCursor(cursorForDragItem(this.#activeItem));
   }
 
   // MARK: Getters

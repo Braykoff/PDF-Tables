@@ -9,9 +9,9 @@ export function isStringEmpty(string) {
 
 /**
  * Clamps a value between two others.
- * @param {*} val The value to clamp.
- * @param {*} min The minimum value.
- * @param {*} max The maximum value.
+ * @param {float} val The value to clamp.
+ * @param {float} min The minimum value.
+ * @param {float} max The maximum value.
  * @returns The clamped value.
  */
 export function clamp(val, min, max) {

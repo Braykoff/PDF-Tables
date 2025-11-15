@@ -28,11 +28,25 @@ const TEXT_BOX_COLOR = "red";
  * @returns The escaped cell, in CSV format.
  */
 function escapeCSV(cell) {
-  if (cell.indexOf(",") !== -1 || cell.indexOf("\n") !== -1 || cell.indexOf("\"") !== -1) {
+  if (cell.includes(",") || cell.includes("\n") || cell.includes("\"")) {
     return `"${cell.replaceAll("\"", "\"\"")}"`;
   } else {
     return cell;
   }
+}
+
+/**
+ * Checks whether a given row (list of strings) is all empty.
+ * @param {string[]} row The row to check.
+ * @returns True if row empty, false otherwise.
+ */
+function isRowEmpty(row) {
+  for (const r of row) {
+    if (!isStringEmpty(r)) {
+      return false;
+    }
+  }
+  return true;
 }
 
 /**
@@ -50,7 +64,6 @@ export class Page {
   #canvasContainer;
   #wordCanvas;
   #interactiveLayer;
-  #currentPageSupplier;
 
   // Table properties
   #columnWidths;
@@ -62,21 +75,19 @@ export class Page {
   // MARK: Construction
   /**
    * Creates a Page object. Use the async .create(...) method instead.
-   * @param {*} pageContainer HTML DOM element containing every page.
+   * @param {*} dom HTML DOM elements.
    * @param {int} pageNum This page's index (starting at 1).
-   * @param {function} currentPageSupplier A function returning the current page the user has scrolled to.
    * @param {Element} pdfCanvas The canvas with this page drawn on it.
    * @param {float} width The width of this page, px.
    * @param {float} height The height of this page, px.
    * @param {*} textContent A list of text boxes on this page (from page.getTextContent().items).
    * to use.
    */
-  constructor(pageContainer, pageNum, currentPageSupplier, pdfCanvas, width, height, textContent) {
+  constructor(dom, pageNum, pdfCanvas, width, height, textContent) {
     // Init default values
     this.#idx = pageNum;
     this.#width = width;
     this.#height = height;
-    this.#currentPageSupplier = currentPageSupplier;
 
     // Init what is known about the table
     this.#columnWidths = Array(DEFAULT_COLS).fill(DEFAULT_COL_SIZE);
@@ -88,7 +99,7 @@ export class Page {
     // Create page container
     this.#canvasContainer = document.createElement("div");
     this.#canvasContainer.classList.add("page");
-    pageContainer.appendChild(this.#canvasContainer);
+    dom.pageContainer.appendChild(this.#canvasContainer);
 
     this.#canvasContainer.style.width = `${width}px`;
     this.#canvasContainer.style.height = `${height}px`;
@@ -135,19 +146,18 @@ export class Page {
     });
 
     // Init interactive layer
-    this.#interactiveLayer = new InteractiveLayer(this);
+    this.#interactiveLayer = new InteractiveLayer(this, dom.bottomBar, dom.bottomBarContent);
     this.forceRedraw();
   }
 
   /**
    * Create a new page.
-   * @param {Element} pageContainer HTML DOM element containing every page. 
+   * @param {} dom HTML DOM elements. 
    * @param {PDFDocumentProxy} pdf PDF object returned by PDF.JS.
-   * @param {function} currentPageSupplier A function returning the current page the user has scrolled to.
    * @param {int} pageNum Page number (starting at 1).
    * @returns A Page object for this page.
    */
-  static async create(pageContainer, pdf, currentPageSupplier, pageNum) {
+  static async create(dom, pdf, pageNum) {
     // Await page, info
     const [canvas, page, width, height] = await renderPDFOntoCanvas(pdf, pageNum);
 
@@ -155,7 +165,7 @@ export class Page {
     const textContent = (await page.getTextContent()).items;
 
     // Pass off to constructor
-    return new this(pageContainer, pageNum, currentPageSupplier, canvas, width, height, textContent);
+    return new this(dom, pageNum, canvas, width, height, textContent);
   }
 
   /**
@@ -286,47 +296,30 @@ export class Page {
    * boxes in the index (first) column. Does redraw.
    */
   detectRows() {
-    // TODO fix
     const indexRowStop = this.tableX + this.getColWidth(0);
-    const rowYPos = [];
+    let cumHeight = 0;
+    let textToUpperBorder = -1;
+
+    this.#rowHeights = [];
 
     // Get the y position of each word in index row
     for (const word of this.#words) {
       if (word.y >= this.tableY && word.y <= this.tableY + this.#tableHeight && word.x >= this.tableX && word.x <= indexRowStop) {
-        rowYPos.push(word.y);
+        // Word is in index row
+        if (textToUpperBorder === -1) {
+          // This is the first one
+          textToUpperBorder = word.y - this.tableY;
+        } else {
+          // Use word y pos for previous row's height
+          const h = word.y - this.tableY - cumHeight - textToUpperBorder;
+          cumHeight += h;
+          this.#rowHeights.push(h);
+        }
       }
     }
 
-    if (rowYPos.length < 2) {
-      // Only one row (or zero)
-      console.log(`Tried to detect rows for page ${this.index}, but only ${rowYPos.length} rows found.`);
-      this.#rowHeights = [this.#tableHeight];
-      this.forceRedraw();
-      return;
-    }
-
-    // Find minimum distance between two rows
-    let minRowSize = rowYPos[1] - rowYPos[0];
-
-    for (let r = 2; r < rowYPos.length; r++) {
-      minRowSize = Math.min(minRowSize, rowYPos[r] - rowYPos[r - 1]);
-    }
-
-    // Each row ends at the previous text box y coord minus the default (minimum) row height / 2
-    this.#rowHeights = [];
-    let cumHeight = 0;
-
-    for (let r = 1; r <= rowYPos.length; r++) {
-      if (r === rowYPos.length) {
-        // This is the last row, use bottom border
-        this.#rowHeights.push(this.#tableHeight - cumHeight);
-      } else {
-        // This is not the last row, use next row
-        const h = rowYPos[r] - this.tableY - cumHeight - (minRowSize / 2);
-        cumHeight += h;
-        this.#rowHeights.push(h);
-      }
-    }
+    // Push last row with remaining height
+    this.#rowHeights.push(this.#tableHeight - cumHeight);
 
     // Redraw
     this.forceRedraw();
@@ -362,7 +355,6 @@ export class Page {
    * @returns This table's CSV data.
    */
   getCSV(columns) {
-    // TODO
     if (columns < this.colCount) {
       throw "Not enough columns!";
     }
@@ -407,6 +399,11 @@ export class Page {
       table[rowIdx][colIdx] += word.content;
     }
 
+    // Ensure not empty
+    if (this.rowCount === 0 || (this.rowCount === 1 && isRowEmpty(table[0]))) {
+      return "";
+    }
+
     // Format into csv format
     for (let r = 0; r < this.rowCount; r++) {
       // Escape each value in the row
@@ -421,6 +418,29 @@ export class Page {
   }
 
   // MARK: Getters
+  /**
+   * Determines the number of words bounded by the given box.
+   * @param {{x: float, y: float}} pos1 The first coordinate.
+   * @param {{x: float, y: float}} pos2 The second coordinate.
+   * @returns The number of words bounded by this box.
+   */
+  getWordsBoundedBy(pos1, pos2) {
+    // Verify inputs are in correct order
+    const [x1, x2] = [pos1.x, pos2.x].sort((a, b) => a - b);
+    const [y1, y2] = [pos1.y, pos2.y].sort((a, b) => a - b);
+
+    // Count words
+    let wordCount = 0;
+
+    for (const word of this.#words) {
+      if (word.x >= x1 && word.y >= y1 && word.x <= x2 && word.y <= y2) {
+        wordCount+=1;
+      }
+    }
+
+    return wordCount;
+  }
+
   /**
    * @returns width of this page, px.
    */
@@ -515,12 +535,5 @@ export class Page {
    */
   getRowHeight(row) {
     return this.#rowHeights[row];
-  }
-
-  /**
-   * @returns The number of pages between this page and the page at the center of the viewport.
-   */
-  get pagesFromViewport() {
-    return Math.abs(this.#currentPageSupplier() - this.#idx);
   }
 }

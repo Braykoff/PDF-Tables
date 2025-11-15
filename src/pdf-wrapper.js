@@ -42,7 +42,7 @@ export async function renderPDFOntoCanvas(pdf, pageNum) {
 /**
  * Finds the center coordinates of a word and converts to a top-left relative coordinate frame.
  * @param {Dict} word A word returned by page.getTextContent().items.
- * @param {*} pageHeight The height of the page.
+ * @param {float} pageHeight The height of the page.
  * @returns The x, y coords of the word's center, relative to the top-left corner of the page.
  */
 export function getTextCenter(word, pageHeight) {

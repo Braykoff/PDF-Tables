@@ -34,6 +34,7 @@ async function build() {
     format: "esm",
     logLevel: "info",
   });
+  console.log("Compiled bundle");
 
   // Try to remove old sourcemaps
   if (!process.argv.includes("--sourcemap")) {
@@ -47,6 +48,7 @@ async function build() {
   const workerSource = path.resolve("node_modules/pdfjs-dist/build/pdf.worker.min.mjs");
   const workerDest = path.resolve("dist/pdf.worker.min.mjs");
   await copyFile(workerSource, workerDest);
+  console.log("Copied pdf.js worker");
 }
 
 // Run

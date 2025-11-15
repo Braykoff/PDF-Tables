@@ -20,6 +20,8 @@ const dom = Object.freeze({
   detectRowsButton: document.getElementById("detectRowsAction"),
   extractButton: document.getElementById("extractAction"),
   pageContainer: document.getElementById("pageContainer"),
+  bottomBar: document.getElementById("bottomBar"),
+  bottomBarContent: document.getElementById("bottomBarContent"),
 });
 
 // Current app state
@@ -66,16 +68,10 @@ dom.fileInput.addEventListener("change", async () => {
   dom.pageCounter.innerText = `Page 1/${pdf.numPages}`;
   dom.columnEntry.value = DEFAULT_COLS;
 
-  /**
-   * Current page supplier, so pages know whether they need to rerender.
-   * @returns The current page from state.
-   */
-  const currentPageSupplier = () => state.currentPage;
-
   // Load each page
   for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
     // Create page
-    const page = await Page.create(dom.pageContainer, pdf, currentPageSupplier, pageNum);
+    const page = await Page.create(dom, pdf, pageNum);
     state.pages.push(page);
 
     page.setTextboxesShown(state.textBoxesShown);
