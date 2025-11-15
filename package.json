@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "description": "Find and extract tables embedded in PDF documents",
   "scripts": {
-    "build": "esbuild src/main.js --bundle --minify --sourcemap --outfile=dist/bundled.min.js --target=esnext --format=esm"
+    "lint": "eslint src/ scripts/ --config scripts/eslint-config.js",
+    "build": "node scripts/build.js"
   },
   "repository": {
     "type": "git",
@@ -11,7 +12,7 @@
   },
   "author": "braykoff",
   "license": "MIT",
-  "type": "commonjs",
+  "type": "module",
   "bugs": {
     "url": "https://github.com/Braykoff/PDF-Tables/issues"
   },
@@ -23,5 +24,8 @@
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-jsdoc": "^61.2.1",
     "globals": "^16.5.0"
+  },
+  "dependencies": {
+    "pdfjs-dist": "^5.4.394"
   }
 }

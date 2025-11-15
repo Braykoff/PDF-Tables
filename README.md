@@ -3,7 +3,7 @@ Find and extract tables embedded in PDF
 
 ## Lint
 ```
-npx eslint src
+npm run lint
 ```
 
 ## Build

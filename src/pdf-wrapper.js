@@ -1,14 +1,14 @@
-import * as pdfjsLib from "../pdfjs-5.4.394-legacy-dist/build/pdf.mjs";
+import { GlobalWorkerOptions, getDocument } from "pdfjs-dist/build/pdf.min.mjs";
 
 /** Source url for PDF.JS global worker. */
-export const PDF_JS_GLOBAL_WORKER_SOURCE = "./pdfjs-5.4.394-legacy-dist/build/pdf.worker.mjs";
+export const PDF_JS_GLOBAL_WORKER_SOURCE = "./dist/pdf.worker.min.mjs";
 
 /**
  * Sets the PDF.JS global worker source.
  */
 export function setGlobalWorkerSource() {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = PDF_JS_GLOBAL_WORKER_SOURCE;
-  console.log("Successfully set PDFJS global worker source");
+  GlobalWorkerOptions.workerSrc = PDF_JS_GLOBAL_WORKER_SOURCE;
+  console.log(`Successfully set PDFJS global worker source to ${PDF_JS_GLOBAL_WORKER_SOURCE}`);
 }
 
 /**
@@ -18,7 +18,7 @@ export function setGlobalWorkerSource() {
  */
 export async function loadPDFFromFile(file) {
   const arrayBuffer = await file.arrayBuffer();
-  return await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  return await getDocument({ data: arrayBuffer }).promise;
 }
 
 /**
