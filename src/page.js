@@ -216,7 +216,9 @@ export class Page {
    * @return The clamped width, px.
    */
   setColumnWidth(col, width) {
-    width = clamp(width, MIN_COL_SIZE, this.width - this.tableX - this.tableWidth + this.getColWidth(col));;
+    width = clamp(
+      width, MIN_COL_SIZE, this.width - this.tableX - this.tableWidth + this.getColWidth(col));
+
     const delta = width - this.getColWidth(col);
     this.#tableWidth += delta;
     this.#columnWidths[col] = width;
@@ -275,12 +277,14 @@ export class Page {
         this.#tableWidth += spaceOnLeft;
       } else if ((spaceOnLeft + this.tableX) / colDelta >= MIN_COL_SIZE) {
         // Fits with moving table to the left and below default
-        this.setPosition(this.tableX - (colDelta - (spaceOnLeft / MIN_COL_SIZE)) * MIN_COL_SIZE, this.tableY);
+        this.setPosition(
+          this.tableX - (colDelta - (spaceOnLeft / MIN_COL_SIZE)) * MIN_COL_SIZE, this.tableY);
         this.#columnWidths.push(...Array(colDelta).fill(MIN_COL_SIZE));
         this.#tableWidth += colDelta *= MIN_COL_SIZE;
       } else {
         // Doesn't even fit with moving the table, just cut columns
-        return this.setColumnCount(this.colCount + Math.floor((spaceOnLeft + this.tableX) / MIN_COL_SIZE));
+        return this.setColumnCount(
+          this.colCount + Math.floor((spaceOnLeft + this.tableX) / MIN_COL_SIZE));
       }
     }
 
@@ -324,7 +328,10 @@ export class Page {
 
     // Get the y position of each word in index row
     for (const word of this.#words) {
-      if (clampedBy(word.x, indexRowStart, indexRowStart + this.indexColWidth) && clampedBy(word.y, this.tableY, this.tableY + this.#tableHeight)) {
+      if (
+        clampedBy(word.x, indexRowStart, indexRowStart + this.indexColWidth) &&
+        clampedBy(word.y, this.tableY, this.tableY + this.#tableHeight)
+      ) {
         // Word is in index row
         if (textToUpperBorder === -1) {
           // This is the first one

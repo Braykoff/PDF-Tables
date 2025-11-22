@@ -42,22 +42,24 @@ export default defineConfig([
       "jsdoc/require-param": "error",
       "jsdoc/require-returns": "error",
       // Other JS formatting
-      "no-redeclare": "error",
-      "no-undef": "error",
-      "no-dupe-keys": "error",
-      "no-empty-function": "error",
-      "consistent-return": "error",
-      "no-magic-numbers": ["error", { ignore: [-1, 0, 1, 2] }],
-      "indent": ["error", 2],
-      "quotes": ["error", "double", { avoidEscape: true }],
-      "semi": ["error", "always"],
-      "comma-dangle": ["error", "always-multiline"],
-      "curly": ["error", "all"],
-      "prefer-const": "error",
-      "prefer-arrow-callback": "error",
-      "prefer-template": "error",
-      "no-var": "error",
-      "eqeqeq": "error",
+      "no-redeclare": "error", // Enforce no redeclaration
+      "no-undef": "error", // Enforce no undefined variables
+      "no-dupe-keys": "error", // Enforce no duplicate keys in tables
+      "no-empty-function": "error", // Enforce no empty functions
+      "consistent-return": "error", // Enforce consistent function returns
+      "no-magic-numbers": ["error", { ignore: [-1, 0, 1, 2] }], // Enforce no magic numbers
+      "indent": ["error", 2], // Enforce 2 space indentation
+      "quotes": ["error", "double", { avoidEscape: true }], // Enforce double quotes
+      "semi": ["error", "always"], // Enforce semicolons at end of lines
+      "no-extra-semi": "error", // Enforces no extra semicolons
+      "comma-dangle": ["error", "always-multiline"], // Enforce multiline table comma dangle
+      "curly": ["error", "all"], // Enforce curly brackets for blocks
+      "prefer-const": "error", // Enforce const for unchanging variables
+      "prefer-arrow-callback": "error", // Enforce arrow notation for callbacks
+      "prefer-template": "error", // Enforce template strings over concatenation
+      "no-var": "error", // Enforce no var variables
+      "eqeqeq": "error", // Enforce no type coercion (triple equals only)
+      "max-len": ["error", { "code": 100 }], // Enforce max line length 80 chars
     },
   },
 ]);

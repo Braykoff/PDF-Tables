@@ -1,4 +1,7 @@
-import { MIN_COL_SIZE, TABLE_SCALE_FACTOR, ACTIVE_TABLE_COLOR, NORMAL_TABLE_COLOR } from "./constants.js";
+import {
+  MIN_COL_SIZE, TABLE_SCALE_FACTOR, ACTIVE_TABLE_COLOR,
+  NORMAL_TABLE_COLOR,
+} from "./constants.js";
 import { IndexLabel } from "./index-label.js";
 import { clampedBy, clamp, isNear } from "./utils.js";
 
@@ -35,7 +38,7 @@ const DragState = {
  * @param {DragItem} item The drag item.
  * @returns The CSS cursor.
  */
-function cursorForDragItem(item) { 
+function cursorForDragItem(item) {
   switch (item) {
   case DragItem.COL:
   case DragItem.INDEX:
@@ -127,7 +130,8 @@ export class InteractiveLayer {
    * Determines if the mouse is hovering over any part of the table, and returns the type/index of
    * the element being hovered.
    * @param {Dict} mousePos The position of the mouse relative to the top left corner of the page.
-   * @returns The type (DragItem) and index of the component being hovered, or null if not being hovered.
+   * @returns The type (DragItem) and index of the component being hovered, or null if not being 
+   * hovered.
    */
   #getIsHovering(mousePos) {
     // Check if hovering index column label
@@ -136,11 +140,14 @@ export class InteractiveLayer {
     }
 
     // Bottom right corner of table
-    const brCorner = [this.#page.tableX + this.#page.tableWidth, this.#page.tableY + this.#page.tableHeight];
+    const brCorner =
+      [this.#page.tableX + this.#page.tableWidth, this.#page.tableY + this.#page.tableHeight];
 
     if (
-      !clampedBy(mousePos.x, this.#page.tableX - TABLE_HOVER_BUFFER, brCorner[0] + TABLE_HOVER_BUFFER) ||
-      !clampedBy(mousePos.y, this.#page.tableY - TABLE_HOVER_BUFFER, brCorner[1] + TABLE_HOVER_BUFFER)
+      !clampedBy(
+        mousePos.x,this.#page.tableX - TABLE_HOVER_BUFFER, brCorner[0] + TABLE_HOVER_BUFFER) || 
+      !clampedBy(
+        mousePos.y, this.#page.tableY - TABLE_HOVER_BUFFER, brCorner[1] + TABLE_HOVER_BUFFER)
     ) {
       // Not within table bounds
       return null;
@@ -194,7 +201,8 @@ export class InteractiveLayer {
         // A column is being dragged left/right
         if (this.#activeIdx === 0) {
           // The first border is being dragged left, need to adjust the table's x position
-          const clampedDeltaX = clamp(deltas.x, -this.#page.tableX, this.#page.getColWidth(0) - MIN_COL_SIZE);
+          const clampedDeltaX =
+              clamp(deltas.x, -this.#page.tableX, this.#page.getColWidth(0) - MIN_COL_SIZE);
 
           this.#page.setPosition(this.#page.tableX + clampedDeltaX, this.#page.tableY);
           this.#page.setColumnWidth(0, this.#page.getColWidth(0) - clampedDeltaX);
@@ -226,7 +234,8 @@ export class InteractiveLayer {
         // A selection box is being made
         // Determine the number of words intercepted
         const wordCount = this.#page.getWordsBoundedBy(this.#firstMousePos, pos);
-        this.#bottomBarContent.innerText = `${wordCount} textbox${wordCount === 1 ? "" : "es"} selected`;
+        this.#bottomBarContent.innerText =
+            `${wordCount} textbox${wordCount === 1 ? "" : "es"} selected`;
         this.#bottomBar.style.visibility = "visible";
 
         break;
@@ -261,7 +270,7 @@ export class InteractiveLayer {
   #mouseDown(evt) {
     this.#firstMousePos = this.#getMousePosOnPage(evt);
     this.#lastMousePos = this.#firstMousePos;
-      
+
     if (this.#state === DragState.HOVER) {
       // Hovering, switch to dragging
       this.#setStateAndLazyRedraw(DragState.DRAGGING, this.#activeItem, this.#activeIdx);
@@ -289,7 +298,8 @@ export class InteractiveLayer {
    * @param {int} newIdx The new drag index to use.
    */
   #setStateAndLazyRedraw(newState, newItem, newIdx) {
-    const needsRedraw = newState !== this.#state || newItem !== this.#activeItem || newIdx !== this.#activeIdx;
+    const needsRedraw =
+      (newState !== this.#state || newItem !== this.#activeItem || newIdx !== this.#activeIdx);
 
     this.#state = newState;
     this.#activeItem = newItem;
@@ -317,7 +327,8 @@ export class InteractiveLayer {
 
       // Set stroke style
       const active = this.#state >= 0 && this.#activeItem === DragItem.ROW && this.#activeIdx === r;
-      this.#ctx.lineWidth = (active ? ACTIVE_TABLE_BORDER_WIDTH : NORMAL_TABLE_BORDER_WIDTH) * TABLE_SCALE_FACTOR;
+      this.#ctx.lineWidth =
+        (active ? ACTIVE_TABLE_BORDER_WIDTH : NORMAL_TABLE_BORDER_WIDTH) * TABLE_SCALE_FACTOR;
       this.#ctx.strokeStyle = active ? ACTIVE_TABLE_COLOR : NORMAL_TABLE_COLOR;
 
       // Draw line
@@ -341,7 +352,8 @@ export class InteractiveLayer {
 
       // Set stroke style
       const active = this.#state >= 0 && this.#activeItem === DragItem.COL && this.#activeIdx === c;
-      this.#ctx.lineWidth = (active ? ACTIVE_TABLE_BORDER_WIDTH : NORMAL_TABLE_BORDER_WIDTH) * TABLE_SCALE_FACTOR;
+      this.#ctx.lineWidth =
+        (active ? ACTIVE_TABLE_BORDER_WIDTH : NORMAL_TABLE_BORDER_WIDTH) * TABLE_SCALE_FACTOR;
       this.#ctx.strokeStyle = active ? ACTIVE_TABLE_COLOR : NORMAL_TABLE_COLOR;
 
       // Draw line
@@ -361,9 +373,9 @@ export class InteractiveLayer {
       this.#ctx.globalAlpha = 0.4;
       this.#ctx.fillStyle = "gray";
       this.#ctx.fillRect(
-        this.#firstMousePos.x * TABLE_SCALE_FACTOR, 
-        this.#firstMousePos.y * TABLE_SCALE_FACTOR, 
-        (this.#lastMousePos.x - this.#firstMousePos.x) * TABLE_SCALE_FACTOR, 
+        this.#firstMousePos.x * TABLE_SCALE_FACTOR,
+        this.#firstMousePos.y * TABLE_SCALE_FACTOR,
+        (this.#lastMousePos.x - this.#firstMousePos.x) * TABLE_SCALE_FACTOR,
         (this.#lastMousePos.y - this.#firstMousePos.y) * TABLE_SCALE_FACTOR,
       );
       this.#ctx.globalAlpha = 1;

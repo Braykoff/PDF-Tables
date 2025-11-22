@@ -49,7 +49,7 @@ dom.fileInput.addEventListener("change", async () => {
   // Display file name
   dom.fileTitle.innerText = rawFile.name;
   dom.fileTitle.title = rawFile.name;
-  document.title = `PDFTables - ${  rawFile.name}`;
+  document.title = `PDFTables - ${rawFile.name}`;
 
   // Reset canvas container
   dom.pageContainer.scrollTop = 0;
@@ -81,7 +81,8 @@ dom.fileInput.addEventListener("change", async () => {
   dom.pageContainer.style.visibility = "visible";
 
   const elapsed = (Date.now() - start) / MILLISECONDS_TO_SECONDS; // seconds
-  console.log(`Loaded ${rawFile.name} with ${state.pages.length} pages in ${elapsed.toFixed(2)} seconds`);
+  console.log(
+    `Loaded ${rawFile.name} with ${state.pages.length} pages in ${elapsed.toFixed(2)} seconds`);
 });
 
 // MARK: Scroll handler
@@ -114,7 +115,7 @@ dom.pageContainer.addEventListener("scroll", () => {
 // When column input is changed, validate input and update table
 dom.columnEntry.addEventListener("change", () => {
   const page = state.pages[state.currentPage - 1];
-  if (page === undefined) {return;}
+  if (page === undefined) { return; }
 
   const clampedCols = page.setColumnCount(dom.columnEntry.value);
   page.forceRedraw();
@@ -126,7 +127,7 @@ dom.columnEntry.addEventListener("change", () => {
 dom.toggleTextBoxesButton.addEventListener("click", () => {
   state.textBoxesShown = !state.textBoxesShown;
 
-  dom.toggleTextBoxesButton.innerText = `${state.textBoxesShown ? "Hide" : "Show"  } Textboxes`;
+  dom.toggleTextBoxesButton.innerText = `${state.textBoxesShown ? "Hide" : "Show"} Textboxes`;
 
   for (const p of state.pages) {
     p.setTextboxesShown(state.textBoxesShown);
@@ -136,7 +137,7 @@ dom.toggleTextBoxesButton.addEventListener("click", () => {
 // Apply to all following pages button
 dom.applyAllButton.addEventListener("click", () => {
   const template = state.pages[state.currentPage - 1];
-  if (template === undefined) {return;}
+  if (template === undefined) { return; }
 
   for (let p = state.currentPage; p < state.pages.length; p++) {
     state.pages[p].copyFrom(template);

@@ -4,7 +4,12 @@
  * @returns True if the string is empty.
  */
 export function isStringEmpty(string) {
-  return (string === undefined || string === null || typeof string !== "string" || string.trim().length === 0);
+  return (
+    string === undefined ||
+    string === null ||
+    typeof string !== "string" ||
+    string.trim().length === 0
+  );
 }
 
 /**
@@ -46,7 +51,7 @@ export function clampedBy(value, min, max) {
  * @returns The contents of the CSV file.
  */
 export function writeCSV(pages) {
-  if (pages.length === 0) {return "";}
+  if (pages.length === 0) { return ""; }
 
   // Determine the max number of cols
   let maxCols = pages[0].colCount;
@@ -55,7 +60,7 @@ export function writeCSV(pages) {
     maxCols = Math.max(maxCols, pages[c].colCount);
   }
 
-  if (maxCols === 0) {return "";}
+  if (maxCols === 0) { return ""; }
 
   // Format header
   let out = "Column0";

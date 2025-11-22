@@ -21,8 +21,8 @@ const COURIER_NEW_SIZE_TO_HEIGHT_RATIO = 0.75;
 const INDEX_LABEL_HEIGHT = fontSizeToHeight(LABEL_FONT_SIZE) + LABEL_VERTICAL_PADDING;
 
 /**
- * Estimates the width of text with monospace Courier New font. If text is undefined, null, or otherwise
- * empty, it will return 0.
+ * Estimates the width of text with monospace Courier New font. If text is undefined, null, or 
+ * otherwise empty, it will return 0.
  * @param {int} size The font size, px.
  * @param {string} text The text.
  * @returns The approximate width of the text, px.
@@ -113,8 +113,17 @@ export class IndexLabel {
    * @returns Whether this coordinate is within the index label.
    */
   isWithinLabel(x, y) {
-    return clampedBy(x, this.#page.tableX + this.#page.leftOfIndex, this.#page.tableX + this.#page.leftOfIndex + this.#page.indexColWidth) &&
-      clampedBy(y, this.#page.tableY - INDEX_LABEL_HEIGHT, this.#page.tableY);
+    return (
+      clampedBy(
+        x,
+        this.#page.tableX + this.#page.leftOfIndex,
+        this.#page.tableX + this.#page.leftOfIndex + this.#page.indexColWidth,
+      ) && clampedBy(
+        y,
+        this.#page.tableY - INDEX_LABEL_HEIGHT,
+        this.#page.tableY,
+      )
+    );
   }
 
   // MARK: Redraw
@@ -126,7 +135,8 @@ export class IndexLabel {
     let msg = null;
 
     for (const text of ["INDEX", "IDX", "I"]) {
-      if (fontSizeToWidth(LABEL_FONT_SIZE, text) <= this.#page.indexColWidth - LABEL_HORIZONTAL_PADDING) {
+      const textWidth = fontSizeToWidth(LABEL_FONT_SIZE, text);
+      if (textWidth <= this.#page.indexColWidth - LABEL_HORIZONTAL_PADDING) {
         msg = text;
         break;
       }
@@ -145,9 +155,15 @@ export class IndexLabel {
       this.#ctx.font = `bold ${LABEL_FONT_SIZE * TABLE_SCALE_FACTOR}px Courier New`;
       this.#ctx.fillStyle = "white";
 
+      const textX =
+        (this.#page.tableX +
+          this.#page.leftOfIndex +
+          this.#dragOffset +
+          (this.#page.indexColWidth - fontSizeToWidth(LABEL_FONT_SIZE, msg)) / 2);
+
       this.#ctx.fillText(
         msg,
-        (this.#page.tableX + this.#page.leftOfIndex + this.#dragOffset + (this.#page.indexColWidth - fontSizeToWidth(LABEL_FONT_SIZE, msg)) / 2) * TABLE_SCALE_FACTOR,
+        textX * TABLE_SCALE_FACTOR,
         (this.#page.tableY - LABEL_VERTICAL_PADDING / 2) * TABLE_SCALE_FACTOR,
       );
     }
