@@ -1,7 +1,7 @@
 import { DEFAULT_COLS, MIN_COL_SIZE } from "./constants.js";
 import { InteractiveLayer } from "./interactive-layer.js";
 import { getTextCenter, renderPDFOntoCanvas } from "./pdf-wrapper.js";
-import { clamp, isStringEmpty } from "./utils.js";
+import { clamp, clampedBy, isStringEmpty } from "./utils.js";
 
 // MARK: Constants
 /** Max number of columns. */
@@ -66,11 +66,13 @@ export class Page {
   #interactiveLayer;
 
   // Table properties
-  #columnWidths;
-  #tableWidth;
-  #rowHeights;
-  #tableHeight;
-  #tableCoords;
+  #columnWidths = Array(DEFAULT_COLS).fill(DEFAULT_COL_SIZE);
+  #tableWidth = DEFAULT_COLS * DEFAULT_COL_SIZE;
+  #rowHeights = [DEFAULT_TABLE_HEIGHT];
+  #tableHeight = DEFAULT_TABLE_HEIGHT;
+  #tableCoords = [5, 5]; // eslint-disable-line no-magic-numbers
+  #indexColumn = 0;
+  #leftOfIndex = 0; // Combined width of all columns to the left of the index column, px.
 
   // MARK: Construction
   /**
@@ -88,13 +90,6 @@ export class Page {
     this.#idx = pageNum;
     this.#width = width;
     this.#height = height;
-
-    // Init what is known about the table
-    this.#columnWidths = Array(DEFAULT_COLS).fill(DEFAULT_COL_SIZE);
-    this.#tableWidth = DEFAULT_COLS * DEFAULT_COL_SIZE;
-    this.#rowHeights = [DEFAULT_TABLE_HEIGHT];
-    this.#tableHeight = DEFAULT_TABLE_HEIGHT;
-    this.#tableCoords = [5, 5]; // eslint-disable-line no-magic-numbers
 
     // Create page container
     this.#canvasContainer = document.createElement("div");
@@ -141,7 +136,7 @@ export class Page {
 
     // Sort word list left-to-right, top-to-bottom
     this.#words.sort((a, b) => {
-      if (a.y !== b.y) {return a.y - b.y;}
+      if (a.y !== b.y) { return a.y - b.y; }
       return a.x - b.x;
     });
 
@@ -225,6 +220,11 @@ export class Page {
     const delta = width - this.getColWidth(col);
     this.#tableWidth += delta;
     this.#columnWidths[col] = width;
+
+    // Effects index column position
+    if (col < this.#indexColumn) {
+      this.#leftOfIndex += delta;
+    }
   }
 
   /**
@@ -251,6 +251,11 @@ export class Page {
       // No change in column count
       return newColCount;
     } else if (newColCount < this.colCount) {
+      // Check that index column is still here
+      if (newColCount <= this.#indexColumn) {
+        this.setIndexColumn(newColCount - 1);
+      }
+
       // Columns removed
       while (this.#columnWidths.length > newColCount) {
         this.#tableWidth -= this.#columnWidths.pop();
@@ -284,6 +289,21 @@ export class Page {
 
   // MARK: Table actions
   /**
+   * Sets the column used for row detection. Does not redraw.
+   * @param {int} col The index of the new column used for indexing.
+   */
+  setIndexColumn(col) {
+    this.#indexColumn = clamp(col, 0, this.colCount - 1);
+
+    // Recompute space to the left of the column
+    this.#leftOfIndex = 0;
+
+    for (let c = 0; c < this.#indexColumn; c++) {
+      this.#leftOfIndex += this.getColWidth(c);
+    }
+  }
+
+  /**
    * Forces the interactive layer to stop dragging and redraw. Does redraw.
    */
   forceRedraw() {
@@ -296,7 +316,7 @@ export class Page {
    * boxes in the index (first) column. Does redraw.
    */
   detectRows() {
-    const indexRowStop = this.tableX + this.getColWidth(0);
+    const indexRowStart = this.tableX + this.leftOfIndex;
     let cumHeight = 0;
     let textToUpperBorder = -1;
 
@@ -304,7 +324,7 @@ export class Page {
 
     // Get the y position of each word in index row
     for (const word of this.#words) {
-      if (word.y >= this.tableY && word.y <= this.tableY + this.#tableHeight && word.x >= this.tableX && word.x <= indexRowStop) {
+      if (clampedBy(word.x, indexRowStart, indexRowStart + this.indexColWidth) && clampedBy(word.y, this.tableY, this.tableY + this.#tableHeight)) {
         // Word is in index row
         if (textToUpperBorder === -1) {
           // This is the first one
@@ -344,6 +364,9 @@ export class Page {
     // Add height
     this.setTableHeight(template.tableHeight);
 
+    // Add index column
+    this.setIndexColumn(template.indexCol);
+
     // Redraw
     this.forceRedraw();
   }
@@ -364,7 +387,7 @@ export class Page {
     // Add each word
     for (const word of this.#words) {
       // Check not too far left/up
-      if (word.x < this.tableX || word.y < this.tableY) {continue;}
+      if (word.x < this.tableX || word.y < this.tableY) { continue; }
 
       // Determine which column this word is in
       let colIdx = -1;
@@ -393,7 +416,7 @@ export class Page {
       }
 
       // Check if inside table
-      if (colIdx === -1 || rowIdx === -1) {continue;}
+      if (colIdx === -1 || rowIdx === -1) { continue; }
 
       // Add to table
       table[rowIdx][colIdx] += word.content;
@@ -433,8 +456,8 @@ export class Page {
     let wordCount = 0;
 
     for (const word of this.#words) {
-      if (word.x >= x1 && word.y >= y1 && word.x <= x2 && word.y <= y2) {
-        wordCount+=1;
+      if (clampedBy(word.x, x1, x2) && clampedBy(word.y, y1, y2)) {
+        wordCount += 1;
       }
     }
 
@@ -535,5 +558,26 @@ export class Page {
    */
   getRowHeight(row) {
     return this.#rowHeights[row];
+  }
+
+  /**
+   * @returns The column index used as the index for row detection.
+   */
+  get indexCol() {
+    return this.#indexColumn;
+  }
+
+  /**
+   * @returns The width of the index column, px.
+   */
+  get indexColWidth() {
+    return this.getColWidth(this.#indexColumn);
+  }
+
+  /**
+   * @returns The combined width of all columns to the left of the index column, px.
+   */
+  get leftOfIndex() {
+    return this.#leftOfIndex;
   }
 }

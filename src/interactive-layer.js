@@ -1,9 +1,8 @@
-import { MIN_COL_SIZE } from "./constants.js";
-import { clamp, isStringEmpty, within } from "./utils.js";
+import { MIN_COL_SIZE, TABLE_SCALE_FACTOR, ACTIVE_TABLE_COLOR, NORMAL_TABLE_COLOR } from "./constants.js";
+import { IndexLabel } from "./index-label.js";
+import { clampedBy, clamp, isNear } from "./utils.js";
 
 // MARK: Constants
-/** Multiplier for table canvas sizing (ie, resolution). */
-const TABLE_SCALE_FACTOR = 2;
 
 /** Default table border width, px */
 const NORMAL_TABLE_BORDER_WIDTH = 1.5;
@@ -11,29 +10,8 @@ const NORMAL_TABLE_BORDER_WIDTH = 1.5;
 /** Table border width while interacting, px. */
 const ACTIVE_TABLE_BORDER_WIDTH = 4;
 
-/** Default table color. */
-const NORMAL_TABLE_COLOR = "navy";
-
-/** Table color while interacting. */
-const ACTIVE_TABLE_COLOR = "blue";
-
 /** Distance cursor can be from element to still be "hovering", px. */
 const TABLE_HOVER_BUFFER = 2;
-
-/** Font size of index column label, px. */
-const LABEL_FONT_SIZE = 10;
-
-/** Padding above and below the index column label, px. */
-const LABEL_VERTICAL_PADDING = 3;
-
-/** Padding left and right the index column label, px. */
-const LABEL_HORIZONTAL_PADDING = 4;
-
-/** Ratio between a character's width and the font size for monospace Courier New font*/
-const COURIER_NEW_SIZE_TO_WIDTH_RATIO = 0.6;
-
-/** Ratio between a character's height and the font size for monospace Courier New font*/
-const COURIER_NEW_SIZE_TO_HEIGHT_RATIO = 0.75;
 
 /** Describes what is being dragged currently. */
 const DragItem = {
@@ -42,6 +20,7 @@ const DragItem = {
   ROW: 1, // Dragging a row border (horizontal line)
   WHOLE: 2, // Dragging whole table
   SELECTION_BOX: 3, // Dragging a selection box
+  INDEX: 4, // Dragging the indexer
 };
 
 /** Describe the state  */
@@ -52,35 +31,14 @@ const DragState = {
 };
 
 /**
- * Estimates the width of text with monospace Courier New font. If text is undefined, null, or otherwise
- * empty, it will return 0.
- * @param {int} size The font size, px.
- * @param {string} text The text.
- * @returns The approximate width of the text, px.
- */
-function fontSizeToWidth(size, text) {
-  if (isStringEmpty(text)) { return 0; }
-
-  return size * COURIER_NEW_SIZE_TO_WIDTH_RATIO * text.length;
-}
-
-/**
- * Estimates the height of text with monospace Courier New font.
- * @param {int} size The font size, px.
- * @returns The approximate height of the text, px.
- */
-function fontSizeToHeight(size) {
-  return COURIER_NEW_SIZE_TO_HEIGHT_RATIO * size;
-}
-
-/**
  * Determines the cursor depending on the drag item.
  * @param {DragItem} item The drag item.
  * @returns The CSS cursor.
  */
-function cursorForDragItem(item) {
+function cursorForDragItem(item) { 
   switch (item) {
   case DragItem.COL:
+  case DragItem.INDEX:
     return "col-resize";
   case DragItem.ROW:
     return "row-resize";
@@ -108,6 +66,7 @@ export class InteractiveLayer {
   #state = DragState.NONE;
   #firstMousePos = undefined; // Coordinate of mouse relative to page first while dragging
   #lastMousePos = undefined; // Coordinate of mouse relative to page at last move while dragging.
+  #indexLabel = undefined;
 
   /**
    * Creates a DraggableTable object.
@@ -128,6 +87,9 @@ export class InteractiveLayer {
     page.addCanvas(canvas);
 
     this.#ctx = canvas.getContext("2d");
+
+    // Create our index label handler
+    this.#indexLabel = new IndexLabel(this.#page, this.#ctx);
 
     // Init listeners
     const mouseMoveListener = this.#mouseMove.bind(this);
@@ -168,22 +130,27 @@ export class InteractiveLayer {
    * @returns The type (DragItem) and index of the component being hovered, or null if not being hovered.
    */
   #getIsHovering(mousePos) {
+    // Check if hovering index column label
+    if (this.#indexLabel.isWithinLabel(mousePos.x, mousePos.y)) {
+      return [DragItem.INDEX, 0];
+    }
+
     // Bottom right corner of table
     const brCorner = [this.#page.tableX + this.#page.tableWidth, this.#page.tableY + this.#page.tableHeight];
 
-    if (mousePos.x < this.#page.tableX - TABLE_HOVER_BUFFER || mousePos.y < this.#page.tableY - TABLE_HOVER_BUFFER) {
-      // Too far left/too high, not in table
-      return null;
-    } else if (mousePos.x > brCorner[0] + TABLE_HOVER_BUFFER || mousePos.y > brCorner[1] + TABLE_HOVER_BUFFER) {
-      // Too far right/too high, not in table
+    if (
+      !clampedBy(mousePos.x, this.#page.tableX - TABLE_HOVER_BUFFER, brCorner[0] + TABLE_HOVER_BUFFER) ||
+      !clampedBy(mousePos.y, this.#page.tableY - TABLE_HOVER_BUFFER, brCorner[1] + TABLE_HOVER_BUFFER)
+    ) {
+      // Not within table bounds
       return null;
     }
 
     // Check if intercepting top or bottom row (horizontal) lines
-    if (within(mousePos.y, this.#page.tableY, TABLE_HOVER_BUFFER)) {
+    if (isNear(mousePos.y, this.#page.tableY, TABLE_HOVER_BUFFER)) {
       // Intercepting top row line
       return [DragItem.ROW, 0];
-    } else if (within(mousePos.y, brCorner[1], TABLE_HOVER_BUFFER)) {
+    } else if (isNear(mousePos.y, brCorner[1], TABLE_HOVER_BUFFER)) {
       // Intercepting bottom row line
       return [DragItem.ROW, this.#page.rowCount];
     }
@@ -194,7 +161,7 @@ export class InteractiveLayer {
     for (let c = 0; c <= this.#page.colCount; c++) {
       const x = this.#page.tableX + cumWidth;
 
-      if (within(mousePos.x, x, TABLE_HOVER_BUFFER)) {
+      if (isNear(mousePos.x, x, TABLE_HOVER_BUFFER)) {
         // Intercepting this column line
         return [DragItem.COL, c];
       }
@@ -256,6 +223,7 @@ export class InteractiveLayer {
         break;
       }
       case DragItem.SELECTION_BOX: {
+        // A selection box is being made
         // Determine the number of words intercepted
         const wordCount = this.#page.getWordsBoundedBy(this.#firstMousePos, pos);
         this.#bottomBarContent.innerText = `${wordCount} textbox${wordCount === 1 ? "" : "es"} selected`;
@@ -263,11 +231,16 @@ export class InteractiveLayer {
 
         break;
       }
+      case DragItem.INDEX: {
+        // The index column is being moved
+        this.#indexLabel.setDrag(deltas.x);
+        break;
+      }
       }
 
       this.#lastMousePos = pos;
       this.redraw();
-    } else if (pos.x >= 0 && pos.x <= this.#page.width && pos.y >= 0 && pos.y <= this.#page.height) {
+    } else if (clampedBy(pos.x, 0, this.#page.width) && clampedBy(pos.y, 0, this.#page.height)) {
       // Check hovering?
       const hover = this.#getIsHovering(pos);
 
@@ -302,8 +275,10 @@ export class InteractiveLayer {
    * Stops all dragging, lazily redrawing the table.
    */
   stopDragging() {
-    this.#setStateAndLazyRedraw(DragState.NONE, DragItem.NONE, -1);
     this.#bottomBar.style.visibility = "hidden";
+    this.#indexLabel.stopDragging();
+
+    this.#setStateAndLazyRedraw(DragState.NONE, DragItem.NONE, -1);
   }
 
   // MARK: Redraw
@@ -330,35 +305,8 @@ export class InteractiveLayer {
     // Clear
     this.#ctx.reset();
 
-    // Get index column label
-    let msg = null;
-
-    for (const text of ["INDEX", "IDX", "I"]) {
-      if (fontSizeToWidth(LABEL_FONT_SIZE, text) <= this.#page.getColWidth(0) - LABEL_HORIZONTAL_PADDING) {
-        msg = text;
-        break;
-      }
-    }
-
-    // Draw index column label
-    this.#ctx.fillStyle = NORMAL_TABLE_COLOR;
-    this.#ctx.fillRect(
-      this.page.tableX * TABLE_SCALE_FACTOR,
-      (this.page.tableY - fontSizeToHeight(LABEL_FONT_SIZE) - LABEL_VERTICAL_PADDING) * TABLE_SCALE_FACTOR,
-      this.#page.getColWidth(0) * TABLE_SCALE_FACTOR,
-      (fontSizeToHeight(LABEL_FONT_SIZE) + LABEL_VERTICAL_PADDING) * TABLE_SCALE_FACTOR,
-    );
-
-    if (msg !== undefined) {
-      this.#ctx.font = `bold ${LABEL_FONT_SIZE * TABLE_SCALE_FACTOR}px Courier New`;
-      this.#ctx.fillStyle = "white";
-
-      this.#ctx.fillText(
-        msg,
-        (this.page.tableX + (this.#page.getColWidth(0) - fontSizeToWidth(LABEL_FONT_SIZE, msg)) / 2) * TABLE_SCALE_FACTOR,
-        (this.page.tableY - LABEL_VERTICAL_PADDING / 2) * TABLE_SCALE_FACTOR,
-      );
-    }
+    // Draw index label
+    this.#indexLabel.redraw();
 
     // Draw horizontal (row) lines
     let cumHeight = 0;
@@ -423,13 +371,5 @@ export class InteractiveLayer {
 
     // Set pointer
     this.#page.setCursor(cursorForDragItem(this.#activeItem));
-  }
-
-  // MARK: Getters
-  /**
-   * @returns This layer's page.
-   */
-  get page() {
-    return this.#page;
   }
 }

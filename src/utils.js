@@ -25,8 +25,19 @@ export function clamp(val, min, max) {
  * @param {float} buffer Maximum distance between value and target.
  * @returns If value if within buffer distance of target.
  */
-export function within(value, target, buffer) {
+export function isNear(value, target, buffer) {
   return Math.abs(target - value) <= buffer;
+}
+
+/**
+ * Checks if a value is between min and max. [min, max]
+ * @param {float} value The value to check.
+ * @param {float} min The min value.
+ * @param {float} max The max value.
+ * @returns If the value is between min and max.
+ */
+export function clampedBy(value, min, max) {
+  return (value >= min && value <= max);
 }
 
 /**
