@@ -33,6 +33,9 @@ async function build() {
     target: "esnext",
     format: "esm",
     logLevel: "info",
+    // Mangle everything:
+    minifyIdentifiers: true,
+    mangleProps: /.*/,
   });
   console.log("Compiled bundle");
 
