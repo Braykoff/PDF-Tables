@@ -64,7 +64,7 @@ async function build(): Promise<void> {
     target: "esnext",
     format: "esm",
     logLevel: "info",
-    mangleProps: /^_/
+    mangleProps: /^_/,
   });
   console.log("Compiled bundle");
 

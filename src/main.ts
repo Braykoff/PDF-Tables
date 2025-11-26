@@ -53,6 +53,14 @@ const state: AppState = {
 // Prevent right click everywhere
 document.body.addEventListener("contextmenu", (evt: MouseEvent) => evt.preventDefault());
 
+// Warn before closing if document is open
+window.addEventListener("beforeunload", (evt: BeforeUnloadEvent) => {
+  if (state.currentPage !== -1) {
+    evt.preventDefault();
+    evt.returnValue = "";
+  }
+});
+
 // MARK: File input
 // File input changed, load new file
 dom.fileInput.addEventListener("change", async () => {
