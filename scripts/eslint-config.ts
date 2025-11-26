@@ -3,15 +3,41 @@ import { defineConfig } from "eslint/config";
 import importPlugin from "eslint-plugin-import";
 import jsdoc from "eslint-plugin-jsdoc";
 import globals from "globals";
+import tseslint from "typescript-eslint";
 
 export default defineConfig([
   {
-    files: ["**/*.{js,mjs,cjs}"],
-    plugins: { js, import: importPlugin, jsdoc },
+    files: ["**/*.{js,mjs,cjs,ts,mts,cts}"], // Apply to all js, ts files
+    plugins: {
+      js,
+      import: importPlugin,
+      jsdoc,
+    },
+    extends: ["js/recommended"],
     languageOptions: { globals: globals.browser },
     rules: {
+      // Enforce explicit types everywhere
+      "@typescript-eslint/explicit-function-return-type": "error",
+      "@typescript-eslint/explicit-module-boundary-types": "error",
+      "@typescript-eslint/typedef": [
+        "error",
+        {
+          "arrayDestructuring": true,
+          "arrowParameter": true,
+          "variableDeclaration": true,
+          "variableDeclarationIgnoreFunction": false,
+          "objectDestructuring": true,
+          "parameter": true,
+          "propertyDeclaration": true,
+        },
+      ],
       // Ignore all unused vars that begin with an underscore
       "no-unused-vars": ["error", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }],
+      "@typescript-eslint/no-unused-vars": ["error", {
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_",
+        "caughtErrorsIgnorePattern": "^_",
+      }],
       // Enforce import alphabetization and formatting
       "import/order": [
         "error",
@@ -59,7 +85,8 @@ export default defineConfig([
       "prefer-template": "error", // Enforce template strings over concatenation
       "no-var": "error", // Enforce no var variables
       "eqeqeq": "error", // Enforce no type coercion (triple equals only)
-      "max-len": ["error", { "code": 100 }], // Enforce max line length 80 chars
+      "max-len": ["error", { "code": 100 }], // Enforce max line length 100 chars
     },
   },
+  tseslint.configs.recommended,
 ]);

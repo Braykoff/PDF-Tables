@@ -1,50 +1,69 @@
-"use-strict";
-
 // MARK: Definitions
+import { PDFDocumentProxy } from "pdfjs-dist";
 import { DEFAULT_COLS } from "./constants.js";
 import { Page } from "./page.js";
 import { loadPDFFromFile, setGlobalWorkerSource } from "./pdf-wrapper.js";
 import { downloadFile, writeCSV } from "./utils.js";
 
 /** Ratio between milliseconds and seconds. */
-const MILLISECONDS_TO_SECONDS = 1000;
+const MILLISECONDS_TO_SECONDS: number = 1000;
 
 // Referenced HTML DOM elements.
-const dom = Object.freeze({
-  fileInput: document.getElementById("fileInput"),
-  fileTitle: document.getElementById("fileTitle"),
-  pageCounter: document.getElementById("pageCount"),
-  columnEntry: document.getElementById("columnEntry"),
-  toggleTextBoxesButton: document.getElementById("showTextboxesAction"),
-  applyAllButton: document.getElementById("applyToAllAction"),
-  detectRowsButton: document.getElementById("detectRowsAction"),
-  extractButton: document.getElementById("extractAction"),
-  pageContainer: document.getElementById("pageContainer"),
-  bottomBar: document.getElementById("bottomBar"),
-  bottomBarContent: document.getElementById("bottomBarContent"),
+interface DomElements {
+  fileInput: HTMLInputElement;
+  fileTitle: HTMLLabelElement;
+  pageCounter: HTMLSpanElement;
+  columnEntry: HTMLInputElement;
+  toggleTextBoxesButton: HTMLSpanElement;
+  applyAllButton: HTMLSpanElement;
+  detectRowsButton: HTMLSpanElement;
+  extractButton: HTMLSpanElement;
+  pageContainer: HTMLDivElement;
+  bottomBar: HTMLDivElement;
+  bottomBarContent: HTMLSpanElement;
+}
+
+const dom: Readonly<DomElements> = Object.freeze({
+  fileInput: document.getElementById("fileInput") as HTMLInputElement,
+  fileTitle: document.getElementById("fileTitle") as HTMLLabelElement,
+  pageCounter: document.getElementById("pageCount") as HTMLSpanElement,
+  columnEntry: document.getElementById("columnEntry") as HTMLInputElement,
+  toggleTextBoxesButton: document.getElementById("showTextboxesAction") as HTMLSpanElement,
+  applyAllButton: document.getElementById("applyToAllAction") as HTMLSpanElement,
+  detectRowsButton: document.getElementById("detectRowsAction") as HTMLSpanElement,
+  extractButton: document.getElementById("extractAction") as HTMLSpanElement,
+  pageContainer: document.getElementById("pageContainer") as HTMLDivElement,
+  bottomBar: document.getElementById("bottomBar") as HTMLDivElement,
+  bottomBarContent: document.getElementById("bottomBarContent") as HTMLSpanElement,
 });
 
 // Current app state
-const state = {
+interface AppState {
+  currentPage: number;
+  pages: Page[];
+  textBoxesShown: boolean;
+}
+
+const state: AppState = {
   currentPage: -1,
   pages: [],
   textBoxesShown: false,
 };
 
 // Prevent right click everywhere
-document.body.addEventListener("contextmenu", (evt) => evt.preventDefault());
+document.body.addEventListener("contextmenu", (evt: MouseEvent) => evt.preventDefault());
 
 // MARK: File input
 // File input changed, load new file
 dom.fileInput.addEventListener("change", async () => {
-  if (dom.fileInput.files.length === 0) {
+  if (dom.fileInput.files!.length === 0) {
     // No file selected
     console.warn("Aborting because no files selected");
     return;
   }
 
-  const start = Date.now();
-  const rawFile = dom.fileInput.files[0];
+  const start: number = Date.now();
+  const rawFile: File = dom.fileInput.files![0]!;
 
   // Display file name
   dom.fileTitle.innerText = rawFile.name;
@@ -62,16 +81,16 @@ dom.fileInput.addEventListener("change", async () => {
   state.pages = [];
 
   // Load PDF
-  const pdf = await loadPDFFromFile(rawFile);
+  const pdf: PDFDocumentProxy = await loadPDFFromFile(rawFile);
   state.currentPage = 1;
 
   dom.pageCounter.innerText = `Page 1/${pdf.numPages}`;
-  dom.columnEntry.value = DEFAULT_COLS;
+  dom.columnEntry.value = DEFAULT_COLS.toString();
 
   // Load each page
-  for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+  for (let pageNum: number = 1; pageNum <= pdf.numPages; pageNum++) {
     // Create page
-    const page = await Page.create(dom, pdf, pageNum);
+    const page: Page = await Page.create(dom, pdf, pageNum);
     state.pages.push(page);
 
     page.setTextboxesShown(state.textBoxesShown);
@@ -80,7 +99,7 @@ dom.fileInput.addEventListener("change", async () => {
   // Now show PDF
   dom.pageContainer.style.visibility = "visible";
 
-  const elapsed = (Date.now() - start) / MILLISECONDS_TO_SECONDS; // seconds
+  const elapsed: number = (Date.now() - start) / MILLISECONDS_TO_SECONDS; // seconds
   console.log(
     `Loaded ${rawFile.name} with ${state.pages.length} pages in ${elapsed.toFixed(2)} seconds`);
 });
@@ -88,12 +107,12 @@ dom.fileInput.addEventListener("change", async () => {
 // MARK: Scroll handler
 // On scroll, update page number
 dom.pageContainer.addEventListener("scroll", () => {
-  let closestPage = null;
-  let closestDist = Infinity;
+  let closestPage: Page | null = null;
+  let closestDist: number = Infinity;
 
   // Find closest canvas to viewport center
   for (const page of state.pages) {
-    const dist = page.distToCenter;
+    const dist: number = page.distToCenter;
 
     if (dist < closestDist) {
       closestDist = dist;
@@ -107,19 +126,19 @@ dom.pageContainer.addEventListener("scroll", () => {
     dom.pageCounter.innerText = `Page ${state.currentPage}/${state.pages.length}`;
 
     // Update table dimension input
-    dom.columnEntry.value = closestPage.colCount;
+    dom.columnEntry.value = closestPage.colCount.toString();
   }
 });
 
 // MARK: Column entry
 // When column input is changed, validate input and update table
 dom.columnEntry.addEventListener("change", () => {
-  const page = state.pages[state.currentPage - 1];
+  const page: Page = state.pages[state.currentPage - 1]!;
   if (page === undefined) { return; }
 
-  const clampedCols = page.setColumnCount(dom.columnEntry.value);
+  const clampedCols: number = page.setColumnCount(parseInt(dom.columnEntry.value));
   page.forceRedraw();
-  dom.columnEntry.value = clampedCols;
+  dom.columnEntry.value = clampedCols.toString();
 });
 
 // MARK: Action handlers
@@ -136,11 +155,11 @@ dom.toggleTextBoxesButton.addEventListener("click", () => {
 
 // Apply to all following pages button
 dom.applyAllButton.addEventListener("click", () => {
-  const template = state.pages[state.currentPage - 1];
+  const template: Page = state.pages[state.currentPage - 1]!;
   if (template === undefined) { return; }
 
-  for (let p = state.currentPage; p < state.pages.length; p++) {
-    state.pages[p].copyFrom(template);
+  for (let p: number = state.currentPage; p < state.pages.length; p++) {
+    state.pages[p]!.copyFrom(template);
   }
 });
 
@@ -155,7 +174,7 @@ dom.detectRowsButton.addEventListener("click", () => {
 dom.extractButton.addEventListener("click", () => {
   dom.extractButton.innerText = "Extracting...";
 
-  const csv = writeCSV(state.pages);
+  const csv: string = writeCSV(state.pages);
   downloadFile("output.csv", csv);
 
   dom.extractButton.innerText = "Extract";
