@@ -160,20 +160,6 @@ dom.pageContainer.addEventListener("scroll", () => {
   }
 });
 
-// MARK: Key entry
-document.addEventListener("keydown", (evt: KeyboardEvent) => {
-  const ctrl: boolean = evt.metaKey || evt.ctrlKey || evt.shiftKey;
-
-  // Check zoom
-  if (ctrl && (evt.key === "+" || evt.key === "=")) {
-    evt.preventDefault();
-    setZoom(state.zoom + ZOOM_RATE);
-  } else if (ctrl && (evt.key === "-" || evt.key === "_")) {
-    evt.preventDefault();
-    setZoom(state.zoom - ZOOM_RATE);
-  }
-});
-
 // MARK: Column entry
 // When column input is changed, validate input and update table
 dom.columnEntry.addEventListener("change", () => {
@@ -206,7 +192,6 @@ dom.zoomOutAction.addEventListener("click", () => { setZoom(state.zoom - ZOOM_RA
 
 // Zoom in button
 dom.zoomInAction.addEventListener("click", () => { setZoom(state.zoom + ZOOM_RATE); });
-
 
 // Show/Hide Text boxes on toggle
 dom.toggleTextBoxesButton.addEventListener("click", () => {
@@ -244,6 +229,51 @@ dom.extractButton.addEventListener("click", () => {
   downloadFile("output.csv", csv);
 
   dom.extractButton.innerText = "Extract";
+});
+
+// MARK: Key binds
+document.addEventListener("keydown", (evt: KeyboardEvent) => {
+  // Do nothing if not ctrl key down
+  if (!(evt.metaKey || evt.ctrlKey || evt.shiftKey)) {return;}
+
+  switch (evt.key.toLowerCase()) {
+  case "o":
+    evt.preventDefault();
+    dom.fileTitle.click();
+    break;
+  case "+":
+  case "=":
+    // Zoom in
+    evt.preventDefault();
+    dom.zoomInAction.click();
+    break;
+  case "-":
+  case "_":
+    // Zoom out
+    evt.preventDefault();
+    dom.zoomOutAction.click();
+    break;
+  case "h":
+    // Show textboxes
+    evt.preventDefault();
+    dom.toggleTextBoxesButton.click();
+    break;
+  case "a":
+    // Apply all
+    evt.preventDefault();
+    dom.applyAllButton.click();
+    break;
+  case "d":
+    // Detect rows
+    evt.preventDefault();
+    dom.detectRowsButton.click();
+    break;
+  case "e":
+    // Extract
+    evt.preventDefault();
+    dom.extractButton.click();
+    break;
+  }
 });
 
 // As soon as rendered, set PDF global worker source
