@@ -2,6 +2,7 @@ import { PDFDocumentProxy, PDFPageProxy } from "pdfjs-dist";
 import { TextItem, TextMarkedContent } from "pdfjs-dist/types/src/display/api.js";
 import { DEFAULT_COLS, MIN_COL_SIZE } from "./constants.js";
 import { InteractiveLayer } from "./interactive-layer.js";
+import { MessageBox } from "./message-box.js";
 import { getWord, renderPDFOntoCanvas, Word } from "./pdf-wrapper.js";
 import { clamp, clampedBy, get2dCanvasContext, isStringEmpty, Pos } from "./utils.js";
 
@@ -60,13 +61,6 @@ function isTextItem(obj: TextItem | TextMarkedContent): obj is TextItem {
   return Object.hasOwn(obj, "str");
 }
 
-/** The required DOM elements for a page. */
-type DOMElements = {
-  pageContainer: HTMLDivElement,
-  bottomBar: HTMLDivElement,
-  bottomBarContent: HTMLSpanElement
-}
-
 /**
  * Represents a single PDF page, with tables and text box annotations.
  */
@@ -97,21 +91,23 @@ export class Page {
   // MARK: Construction
   /**
    * Creates a Page object. Use the async .create(...) method instead.
-   * @param dom HTML DOM elements.
+   * @param pageContainer The element containing all the pages.
    * @param pageNum This page's index (starting at 1).
    * @param pdfCanvas The canvas with this page drawn on it.
    * @param width The width of this page, px.
    * @param height The height of this page, px.
    * @param textContent A list of text boxes on this page (from page.getTextContent().items). to 
    * use.
+   * @param messageBox The message box to display info on.
    */
   constructor(
-    dom: DOMElements, 
+    pageContainer: HTMLDivElement, 
     pageNum: number, 
     pdfCanvas: HTMLCanvasElement, 
     width: number, 
     height: number, 
     textContent: (TextItem | TextMarkedContent)[],
+    messageBox: MessageBox,
   ) {
     // Init default values
     this._idx = pageNum;
@@ -121,7 +117,7 @@ export class Page {
     // Create page container
     this._canvasContainer = document.createElement("div");
     this._canvasContainer.classList.add("page");
-    dom.pageContainer.appendChild(this._canvasContainer);
+    pageContainer.appendChild(this._canvasContainer);
 
     this.setZoom(1.0); // Sets width, height, and _zoom.
 
@@ -161,18 +157,24 @@ export class Page {
     });
 
     // Init interactive layer
-    this._interactiveLayer = new InteractiveLayer(this, dom.bottomBar, dom.bottomBarContent);
+    this._interactiveLayer = new InteractiveLayer(this, messageBox);
     this.forceRedraw();
   }
 
   /**
    * Create a new page.
-   * @param dom HTML DOM elements. 
+   * @param pageContainer The element containing all the pages.
+   * @param messageBox The message box to display info on.
    * @param pdf PDF object returned by PDF.JS.
    * @param pageNum Page number (starting at 1).
    * @returns A Page object for this page.
    */
-  static async create(dom: DOMElements, pdf: PDFDocumentProxy, pageNum: number): Promise<Page> {
+  static async create(
+    pageContainer: HTMLDivElement, 
+    messageBox: MessageBox, 
+    pdf: PDFDocumentProxy, 
+    pageNum: number,
+  ): Promise<Page> {
     // Await page, info
     const [canvas, page, width, height]: [HTMLCanvasElement, PDFPageProxy, number, number] = 
       await renderPDFOntoCanvas(pdf, pageNum);
@@ -181,7 +183,7 @@ export class Page {
     const textContent: (TextItem | TextMarkedContent)[] = (await page.getTextContent()).items;
 
     // Pass off to constructor
-    return new this(dom, pageNum, canvas, width, height, textContent);
+    return new this(pageContainer, pageNum, canvas, width, height, textContent, messageBox);
   }
 
   /**

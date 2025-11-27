@@ -1,6 +1,7 @@
 // MARK: Definitions
 import { PDFDocumentProxy } from "pdfjs-dist";
 import { DEFAULT_COLS } from "./constants.js";
+import { MessageBox } from "./message-box.js";
 import { Page } from "./page.js";
 import { loadPDFFromFile, setGlobalWorkerSource } from "./pdf-wrapper.js";
 import { clamp, downloadFile, writeCSV } from "./utils.js";
@@ -30,8 +31,8 @@ interface DomElements {
   detectRowsButton: HTMLSpanElement;
   extractButton: HTMLSpanElement;
   pageContainer: HTMLDivElement;
-  bottomBar: HTMLDivElement;
-  bottomBarContent: HTMLSpanElement;
+  messageBoxContainer: HTMLDivElement;
+  messageBoxContent: HTMLSpanElement;
 }
 
 const dom: Readonly<DomElements> = Object.freeze({
@@ -46,8 +47,8 @@ const dom: Readonly<DomElements> = Object.freeze({
   detectRowsButton: document.getElementById("detectRowsAction") as HTMLSpanElement,
   extractButton: document.getElementById("extractAction") as HTMLSpanElement,
   pageContainer: document.getElementById("pageContainer") as HTMLDivElement,
-  bottomBar: document.getElementById("bottomBar") as HTMLDivElement,
-  bottomBarContent: document.getElementById("bottomBarContent") as HTMLSpanElement,
+  messageBoxContainer: document.getElementById("messageBox") as HTMLDivElement,
+  messageBoxContent: document.getElementById("messageBoxContent") as HTMLSpanElement,
 });
 
 // Current app state
@@ -64,6 +65,9 @@ const state: AppState = {
   zoom: 1.0,
   textBoxesShown: false,
 };
+
+// Message box
+const messageBox: MessageBox = new MessageBox(dom.messageBoxContainer, dom.messageBoxContent);
 
 // Prevent right click everywhere
 document.body.addEventListener("contextmenu", (evt: MouseEvent) => evt.preventDefault());
@@ -116,7 +120,7 @@ dom.fileInput.addEventListener("change", async () => {
   // Load each page
   for (let pageNum: number = 1; pageNum <= pdf.numPages; pageNum++) {
     // Create page
-    const page: Page = await Page.create(dom, pdf, pageNum);
+    const page: Page = await Page.create(dom.pageContainer, messageBox, pdf, pageNum);
     state.pages.push(page);
 
     page.setTextboxesShown(state.textBoxesShown);
@@ -192,13 +196,16 @@ function setZoom(newZoom: number): void {
   for (const p of state.pages) {
     p.setZoom(state.zoom);
   }
+
+  // Show the user the zoom
+  messageBox.showTempText(`Zoom: ${Math.round(state.zoom * 100)}%`);
 }
 
 // Zoom out button
 dom.zoomOutAction.addEventListener("click", () => { setZoom(state.zoom - ZOOM_RATE); });
 
 // Zoom in button
-dom.zoomOutAction.addEventListener("click", () => { setZoom(state.zoom + ZOOM_RATE); });
+dom.zoomInAction.addEventListener("click", () => { setZoom(state.zoom + ZOOM_RATE); });
 
 
 // Show/Hide Text boxes on toggle

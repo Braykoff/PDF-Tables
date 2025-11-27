@@ -32,12 +32,8 @@ export default defineConfig([
         },
       ],
       // Ignore all unused vars that begin with an underscore
-      "no-unused-vars": ["error", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }],
-      "@typescript-eslint/no-unused-vars": ["error", {
-        "argsIgnorePattern": "^_",
-        "varsIgnorePattern": "^_",
-        "caughtErrorsIgnorePattern": "^_",
-      }],
+      "no-unused-vars": "error",
+      "@typescript-eslint/no-unused-vars": "error",
       // Enforce import alphabetization and formatting
       "import/order": [
         "error",
@@ -73,7 +69,7 @@ export default defineConfig([
       "no-dupe-keys": "error", // Enforce no duplicate keys in tables
       "no-empty-function": "error", // Enforce no empty functions
       "consistent-return": "error", // Enforce consistent function returns
-      "no-magic-numbers": ["error", { ignore: [-1, 0, 1, 2] }], // Enforce no magic numbers
+      "no-magic-numbers": ["error", { ignore: [-1, 0, 1, 2, 100] }], // Enforce no magic numbers
       "indent": ["error", 2], // Enforce 2 space indentation
       "quotes": ["error", "double", { avoidEscape: true }], // Enforce double quotes
       "semi": ["error", "always"], // Enforce semicolons at end of lines

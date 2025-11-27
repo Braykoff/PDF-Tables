@@ -106,7 +106,7 @@ body {
 }
 
 /* BOTTOM BAR */
-#bottomBar {
+#messageBox {
   position: absolute;
   z-index: 4;
   left: 0;

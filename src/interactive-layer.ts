@@ -3,6 +3,7 @@ import {
   NORMAL_TABLE_COLOR,
 } from "./constants.js";
 import { IndexLabel } from "./index-label.js";
+import { MessageBox, MessageBoxState } from "./message-box.js";
 import { Page } from "./page.js";
 import { clamp, clampedBy, EMPTY_POS, get2dCanvasContext, isNear, Pos } from "./utils.js";
 
@@ -64,8 +65,7 @@ export class InteractiveLayer {
   // MARK: Construction
   private _page: Page;
   private _ctx: CanvasRenderingContext2D;
-  private _bottomBar: HTMLDivElement;
-  private _bottomBarContent: HTMLSpanElement;
+  private _messageBox: MessageBox;
   private _indexLabel: IndexLabel;
 
   private _activeItem: DragItem = DragItem.NONE;
@@ -83,14 +83,12 @@ export class InteractiveLayer {
   /**
    * Creates a DraggableTable object.
    * @param page The page object for this table.
-   * @param bottomBar The HTML bottom bar containing div.
-   * @param bottomBarContent The HTML bottom bar text span.
+   * @param messageBox The message box to display info on.
    */
-  constructor(page: Page, bottomBar: HTMLDivElement, bottomBarContent: HTMLSpanElement) {
+  constructor(page: Page, messageBox: MessageBox) {
     this._page = page;
-    this._bottomBar = bottomBar;
-    this._bottomBarContent = bottomBarContent;
-
+    this._messageBox = messageBox;
+    
     // Create our canvas
     const canvas: HTMLCanvasElement = document.createElement("canvas");
     canvas.width = page.width * TABLE_SCALE_FACTOR;
@@ -245,9 +243,8 @@ export class InteractiveLayer {
         // A selection box is being made
         // Determine the number of words intercepted
         const wordCount: number = this._page.getWordsBoundedBy(this._firstMousePos, pos);
-        this._bottomBarContent.innerText =
-            `${wordCount} textbox${wordCount === 1 ? "" : "es"} selected`;
-        this._bottomBar.style.visibility = "visible";
+        this._messageBox.showPermanentText(
+          `${wordCount} textbox${wordCount === 1 ? "" : "es"} selected`);
 
         break;
       }
@@ -295,7 +292,15 @@ export class InteractiveLayer {
    * Stops all dragging, lazily redrawing the table.
    */
   stopDragging(): void {
-    this._bottomBar.style.visibility = "hidden";
+    // Hide the message box, if its us
+    if (
+      this._state === DragState.DRAGGING && 
+      this._activeItem === DragItem.SELECTION_BOX && 
+      this._messageBox.state === MessageBoxState.SHOWN_PERMANENT
+    ) {
+      this._messageBox.hide();
+    }
+
     this._indexLabel.stopDragging();
 
     this._setStateAndLazyRedraw(DragState.NONE, DragItem.NONE, -1);
