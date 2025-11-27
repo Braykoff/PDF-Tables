@@ -3,10 +3,19 @@ import { PDFDocumentProxy } from "pdfjs-dist";
 import { DEFAULT_COLS } from "./constants.js";
 import { Page } from "./page.js";
 import { loadPDFFromFile, setGlobalWorkerSource } from "./pdf-wrapper.js";
-import { downloadFile, writeCSV } from "./utils.js";
+import { clamp, downloadFile, writeCSV } from "./utils.js";
 
 /** Ratio between milliseconds and seconds. */
 const MILLISECONDS_TO_SECONDS: number = 1000;
+
+/** Amount to zoom per click, %. */
+const ZOOM_RATE: number = 0.1;
+
+/** Minimum zoom, %. */
+const MIN_ZOOM: number = 0.5;
+
+/** Max zoom, %. */
+const MAX_ZOOM: number = 2.0;
 
 // Referenced HTML DOM elements.
 interface DomElements {
@@ -14,6 +23,8 @@ interface DomElements {
   fileTitle: HTMLLabelElement;
   pageCounter: HTMLSpanElement;
   columnEntry: HTMLInputElement;
+  zoomOutAction: HTMLSpanElement;
+  zoomInAction: HTMLSpanElement;
   toggleTextBoxesButton: HTMLSpanElement;
   applyAllButton: HTMLSpanElement;
   detectRowsButton: HTMLSpanElement;
@@ -28,6 +39,8 @@ const dom: Readonly<DomElements> = Object.freeze({
   fileTitle: document.getElementById("fileTitle") as HTMLLabelElement,
   pageCounter: document.getElementById("pageCount") as HTMLSpanElement,
   columnEntry: document.getElementById("columnEntry") as HTMLInputElement,
+  zoomOutAction: document.getElementById("zoomOutAction") as HTMLSpanElement,
+  zoomInAction: document.getElementById("zoomInAction") as HTMLSpanElement,
   toggleTextBoxesButton: document.getElementById("showTextboxesAction") as HTMLSpanElement,
   applyAllButton: document.getElementById("applyToAllAction") as HTMLSpanElement,
   detectRowsButton: document.getElementById("detectRowsAction") as HTMLSpanElement,
@@ -41,12 +54,14 @@ const dom: Readonly<DomElements> = Object.freeze({
 interface AppState {
   currentPage: number;
   pages: Page[];
+  zoom: number;
   textBoxesShown: boolean;
 }
 
 const state: AppState = {
   currentPage: -1,
   pages: [],
+  zoom: 1.0,
   textBoxesShown: false,
 };
 
@@ -87,6 +102,9 @@ dom.fileInput.addEventListener("change", async () => {
   }
 
   state.pages = [];
+
+  // Reset zoom
+  state.zoom = 1.0;
 
   // Load PDF
   const pdf: PDFDocumentProxy = await loadPDFFromFile(rawFile);
@@ -138,6 +156,20 @@ dom.pageContainer.addEventListener("scroll", () => {
   }
 });
 
+// MARK: Key entry
+document.addEventListener("keydown", (evt: KeyboardEvent) => {
+  const ctrl: boolean = evt.metaKey || evt.ctrlKey || evt.shiftKey;
+
+  // Check zoom
+  if (ctrl && (evt.key === "+" || evt.key === "=")) {
+    evt.preventDefault();
+    setZoom(state.zoom + ZOOM_RATE);
+  } else if (ctrl && (evt.key === "-" || evt.key === "_")) {
+    evt.preventDefault();
+    setZoom(state.zoom - ZOOM_RATE);
+  }
+});
+
 // MARK: Column entry
 // When column input is changed, validate input and update table
 dom.columnEntry.addEventListener("change", () => {
@@ -150,6 +182,25 @@ dom.columnEntry.addEventListener("change", () => {
 });
 
 // MARK: Action handlers
+/**
+ * Zooms the PDF in/out.
+ * @param newZoom The new zoom, %.
+ */
+function setZoom(newZoom: number): void {
+  state.zoom = clamp(newZoom, MIN_ZOOM, MAX_ZOOM);
+
+  for (const p of state.pages) {
+    p.setZoom(state.zoom);
+  }
+}
+
+// Zoom out button
+dom.zoomOutAction.addEventListener("click", () => { setZoom(state.zoom - ZOOM_RATE); });
+
+// Zoom in button
+dom.zoomOutAction.addEventListener("click", () => { setZoom(state.zoom + ZOOM_RATE); });
+
+
 // Show/Hide Text boxes on toggle
 dom.toggleTextBoxesButton.addEventListener("click", () => {
   state.textBoxesShown = !state.textBoxesShown;

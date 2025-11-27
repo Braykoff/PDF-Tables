@@ -132,8 +132,8 @@ export class InteractiveLayer {
   private _getMousePosOnPage(evt: MouseEvent): Pos {
     const rect: DOMRect = this._page.boundingClientRect;
     return {
-      x: evt.clientX - rect.x,
-      y: evt.clientY - rect.y,
+      x: (evt.clientX - rect.x) / this._page.zoom,
+      y: (evt.clientY - rect.y) / this._page.zoom,
     };
   }
 

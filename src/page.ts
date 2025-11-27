@@ -77,6 +77,7 @@ export class Page {
   private _width: number;
   private _height: number;
   private _words: Word[];
+  private _zoom!: number;
 
   // Page elements
   private _canvasContainer: HTMLDivElement;
@@ -122,8 +123,7 @@ export class Page {
     this._canvasContainer.classList.add("page");
     dom.pageContainer.appendChild(this._canvasContainer);
 
-    this._canvasContainer.style.width = `${width}px`;
-    this._canvasContainer.style.height = `${height}px`;
+    this.setZoom(1.0); // Sets width, height, and _zoom.
 
     // Add PDF canvas
     this._canvasContainer.appendChild(pdfCanvas);
@@ -215,6 +215,16 @@ export class Page {
    */
   setCursor(cursor: string): void {
     this._canvasContainer.style.cursor = cursor;
+  }
+
+  /**
+   * Zooms the page in/out.
+   * @param zoom The zoom to set to, %.
+   */
+  setZoom(zoom: number): void {
+    this._zoom = zoom;
+    this._canvasContainer.style.width = `${this.width * zoom}px`;
+    this._canvasContainer.style.height = `${this.height * zoom}px`;
   }
 
   // MARK: Table properties
@@ -523,6 +533,13 @@ export class Page {
   get distToCenter(): number {
     const rect: DOMRect = this.boundingClientRect;
     return Math.abs((rect.top + rect.bottom) / 2 - window.innerHeight / 2);
+  }
+
+  /**
+   * @returns The zoom, %.
+   */
+  get zoom(): number {
+    return this._zoom;
   }
 
   /**
