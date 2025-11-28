@@ -327,7 +327,6 @@ export class Page {
       }
     }
 
-    console.log(this.indexCol);
     return newColCount;
   }
 

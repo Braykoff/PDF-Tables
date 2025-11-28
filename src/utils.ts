@@ -82,10 +82,13 @@ export function writeCSV(pages: Page[]): string {
     out += `,Column${c}`;
   }
 
-  // Append each page
+  // Append each page of not empty
   for (const p of pages) {
-    out += "\n";
-    out += p.getCSV(maxCols);
+    const pageCSV: string = p.getCSV(maxCols);
+
+    if (!isStringEmpty(pageCSV)) {
+      out += `\n${pageCSV}`;
+    }
   }
 
   return out;
