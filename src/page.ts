@@ -279,7 +279,7 @@ export class Page {
    * @returns The clamped number of columns.
    */
   setColumnCount(newColCount: number): number {
-    newColCount = clamp(newColCount, 1, MAX_COLS);
+    newColCount = clamp(newColCount, 0, MAX_COLS);
 
     if (newColCount === this.colCount) {
       // No change in column count
@@ -319,8 +319,15 @@ export class Page {
         return this.setColumnCount(
           this.colCount + Math.floor((spaceOnLeft + this.tableX) / MIN_COL_SIZE));
       }
+
+      // Sometimes, when setting the number of columns to 0, the index becomes -1.
+      // Let's fix that here.
+      if (this.indexCol < 0) {
+        this.setIndexColumn(0);
+      }
     }
 
+    console.log(this.indexCol);
     return newColCount;
   }
 
@@ -418,6 +425,11 @@ export class Page {
    * @returns This table's CSV data.
    */
   getCSV(columns: number): string {
+    if (this.colCount === 0) {
+      // We have no table to contribute
+      return "";
+    }
+
     if (columns < this.colCount) {
       throw "Not enough columns!";
     }

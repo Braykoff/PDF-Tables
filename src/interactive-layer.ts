@@ -257,8 +257,12 @@ export class InteractiveLayer {
 
       this._lastMousePos = pos;
       this.redraw();
-    } else if (clampedBy(pos.x, 0, this._page.width) && clampedBy(pos.y, 0, this._page.height)) {
-      // Check hovering?
+    } else if (
+      this._page.colCount > 0 && 
+      clampedBy(pos.x, 0, this._page.width) && 
+      clampedBy(pos.y, 0, this._page.height)
+    ) {
+      // Check hovering if within page and there are columns?
       const hover: [DragItem, number] | null = this._getIsHovering(pos);
 
       if (hover === null) {
@@ -330,6 +334,11 @@ export class InteractiveLayer {
   redraw(): void {
     // Clear
     this._ctx.reset();
+
+    // If there is no table, do not draw anything
+    if (this._page.colCount === 0) {
+      return;
+    }
 
     // Draw index label
     this._indexLabel.redraw();
