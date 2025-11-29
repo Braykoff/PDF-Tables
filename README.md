@@ -40,4 +40,4 @@ This project is under the [MIT license](LICENSE).
 
 The [PDF.js](https://mozilla.github.io/pdf.js/) library is provided under the [Apache License](https://github.com/mozilla/pdf.js/blob/master/LICENSE), and is copyrighted by the Mozilla Foundation. 
 
-The [Tesseract.js](https://tesseract.projectnaptha.com/) library is provided under the [Apache License](https://github.com/naptha/tesseract.js/blob/master/LICENSE.md), and is copyrighted by the Mozilla Foundation. 
+The [Tesseract.js](https://tesseract.projectnaptha.com/) library is provided under the [Apache License](https://github.com/naptha/tesseract.js/blob/master/LICENSE.md), and is copyrighted.
