@@ -31,6 +31,7 @@
   },
   "dependencies": {
     "jiti": "^2.6.1",
-    "pdfjs-dist": "^5.4.394"
+    "pdfjs-dist": "^5.4.394",
+    "tesseract.js": "^6.0.1"
   }
 }

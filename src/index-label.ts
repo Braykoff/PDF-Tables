@@ -1,16 +1,17 @@
-import { TABLE_SCALE_FACTOR, ACTIVE_TABLE_COLOR, NORMAL_TABLE_COLOR } from "./constants.js";
+import { ACTIVE_TABLE_COLOR, NORMAL_TABLE_COLOR, PDF_SCALE_FACTOR } from "./constants.js";
 import { Page } from "./page.js";
 import { clampedBy, isStringEmpty } from "./utils.js";
 
 // MARK: Constants
 /** Font size of index column label, px. */
-const LABEL_FONT_SIZE: number = 10;
+const LABEL_FONT_SIZE: number = 10 * PDF_SCALE_FACTOR; // eslint-disable-line no-magic-numbers
 
 /** Padding above and below the index column label, px. */
-const LABEL_VERTICAL_PADDING: number = 3;
+const LABEL_VERTICAL_PADDING: number = 3 * PDF_SCALE_FACTOR; // eslint-disable-line no-magic-numbers
 
 /** Padding left and right the index column label, px. */
-const LABEL_HORIZONTAL_PADDING: number = 4;
+// eslint-disable-next-line no-magic-numbers
+const LABEL_HORIZONTAL_PADDING: number = 4 * PDF_SCALE_FACTOR;
 
 /** Ratio between a character's width and the font size for monospace Courier New font*/
 const COURIER_NEW_SIZE_TO_WIDTH_RATIO: number = 0.6;
@@ -148,27 +149,21 @@ export class IndexLabel {
     // Draw index column label
     this._ctx.fillStyle = NORMAL_TABLE_COLOR;
     this._ctx.fillRect(
-      (this._page.tableX + this._page.leftOfIndex + this._dragOffset) * TABLE_SCALE_FACTOR,
-      (this._page.tableY - INDEX_LABEL_HEIGHT) * TABLE_SCALE_FACTOR,
-      this._page.indexColWidth * TABLE_SCALE_FACTOR,
-      INDEX_LABEL_HEIGHT * TABLE_SCALE_FACTOR,
+      this._page.tableX + this._page.leftOfIndex + this._dragOffset,
+      this._page.tableY - INDEX_LABEL_HEIGHT,
+      this._page.indexColWidth,
+      INDEX_LABEL_HEIGHT,
     );
 
     if (msg !== null) {
-      this._ctx.font = `bold ${LABEL_FONT_SIZE * TABLE_SCALE_FACTOR}px Courier New`;
+      this._ctx.font = `bold ${LABEL_FONT_SIZE}px Courier New`;
       this._ctx.fillStyle = "white";
 
       const textX: number =
-        (this._page.tableX +
-          this._page.leftOfIndex +
-          this._dragOffset +
+        (this._page.tableX + this._page.leftOfIndex + this._dragOffset +
           (this._page.indexColWidth - fontSizeToWidth(LABEL_FONT_SIZE, msg)) / 2);
 
-      this._ctx.fillText(
-        msg,
-        textX * TABLE_SCALE_FACTOR,
-        (this._page.tableY - LABEL_VERTICAL_PADDING / 2) * TABLE_SCALE_FACTOR,
-      );
+      this._ctx.fillText(msg, textX, this._page.tableY - LABEL_VERTICAL_PADDING / 2);
     }
 
     // Shade in column if index column is being moved
@@ -176,10 +171,10 @@ export class IndexLabel {
       this._ctx.fillStyle = ACTIVE_TABLE_COLOR;
       this._ctx.globalAlpha = 0.2;
       this._ctx.fillRect(
-        (this._page.tableX + this._page.leftOfIndex) * TABLE_SCALE_FACTOR,
-        this._page.tableY * TABLE_SCALE_FACTOR,
-        this._page.indexColWidth * TABLE_SCALE_FACTOR,
-        this._page.tableHeight * TABLE_SCALE_FACTOR,
+        this._page.tableX + this._page.leftOfIndex,
+        this._page.tableY,
+        this._page.indexColWidth,
+        this._page.tableHeight,
       );
       this._ctx.globalAlpha = 1.0;
     }

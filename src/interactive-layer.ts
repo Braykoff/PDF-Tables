@@ -1,21 +1,23 @@
 import {
-  MIN_COL_SIZE, TABLE_SCALE_FACTOR, ACTIVE_TABLE_COLOR,
-  NORMAL_TABLE_COLOR,
+  MIN_COL_SIZE, ACTIVE_TABLE_COLOR, NORMAL_TABLE_COLOR, PDF_SCALE_FACTOR,
 } from "./constants.js";
 import { IndexLabel } from "./index-label.js";
 import { MessageBox, MessageBoxState } from "./message-box.js";
 import { Page } from "./page.js";
+import { Word } from "./pdf-wrapper.js";
 import { clamp, clampedBy, EMPTY_POS, get2dCanvasContext, isNear, Pos } from "./utils.js";
 
 // MARK: Constants
 /** Default table border width, px */
-const NORMAL_TABLE_BORDER_WIDTH: number = 1.5;
+// eslint-disable-next-line no-magic-numbers
+const NORMAL_TABLE_BORDER_WIDTH: number = 1.5 * PDF_SCALE_FACTOR;
 
 /** Table border width while interacting, px. */
-const ACTIVE_TABLE_BORDER_WIDTH: number = 4;
+// eslint-disable-next-line no-magic-numbers
+const ACTIVE_TABLE_BORDER_WIDTH: number = 4 * PDF_SCALE_FACTOR;
 
 /** Distance cursor can be from element to still be "hovering", px. */
-const TABLE_HOVER_BUFFER: number = 2;
+const TABLE_HOVER_BUFFER: number = 2 * PDF_SCALE_FACTOR;
 
 /** Describes what is being dragged currently. */
 enum DragItem {
@@ -37,9 +39,10 @@ enum DragState {
 /**
  * Determines the cursor depending on the drag item.
  * @param item The drag item.
+ * @param runningOCR Whether the page is running OCR.
  * @returns The CSS cursor.
  */
-function cursorForDragItem(item: DragItem): string {
+function cursorForDragItem(item: DragItem, runningOCR: boolean): string {
   switch (item) {
   case DragItem.COL:
   case DragItem.INDEX:
@@ -51,7 +54,7 @@ function cursorForDragItem(item: DragItem): string {
   case DragItem.SELECTION_BOX:
     return "crosshair";
   default:
-    return "";
+    return runningOCR ? "progress" : "";
   }
 }
 
@@ -72,6 +75,8 @@ export class InteractiveLayer {
   /** index of the object being dragged. */
   private _activeIdx: number = -1;
   private _state: DragState = DragState.NONE;
+  private _isRunningOCR: boolean = false;
+  private _textSource: string = "PDF Text Layer";
   /** Coordinate of mouse relative to page first while dragging. */
   private _firstMousePos: Pos = EMPTY_POS;
   /** Coordinate of mouse relative to page at last move while dragging. */
@@ -88,11 +93,11 @@ export class InteractiveLayer {
   constructor(page: Page, messageBox: MessageBox) {
     this._page = page;
     this._messageBox = messageBox;
-    
+
     // Create our canvas
     const canvas: HTMLCanvasElement = document.createElement("canvas");
-    canvas.width = page.width * TABLE_SCALE_FACTOR;
-    canvas.height = page.height * TABLE_SCALE_FACTOR;
+    canvas.width = page.width;
+    canvas.height = page.height;
     canvas.classList.add("tableCanvas");
     page.addCanvas(canvas);
 
@@ -104,7 +109,7 @@ export class InteractiveLayer {
     // Init listeners
     const mouseMoveListener: MouseEventHandler = this._mouseMove.bind(this);
     const mouseDownListener: MouseEventHandler = this._mouseDown.bind(this);
-    const mouseUpListener:  MouseEventHandler = this.stopDragging.bind(this);
+    const mouseUpListener: MouseEventHandler = this.stopDragging.bind(this);
 
     document.addEventListener("mousemove", mouseMoveListener);
     canvas.addEventListener("mousedown", mouseDownListener);
@@ -154,7 +159,7 @@ export class InteractiveLayer {
 
     if (
       !clampedBy(
-        mousePos.x,this._page.tableX - TABLE_HOVER_BUFFER, brCorner[0] + TABLE_HOVER_BUFFER) || 
+        mousePos.x, this._page.tableX - TABLE_HOVER_BUFFER, brCorner[0] + TABLE_HOVER_BUFFER) ||
       !clampedBy(
         mousePos.y, this._page.tableY - TABLE_HOVER_BUFFER, brCorner[1] + TABLE_HOVER_BUFFER)
     ) {
@@ -257,20 +262,27 @@ export class InteractiveLayer {
 
       this._lastMousePos = pos;
       this.redraw();
-    } else if (
-      this._page.colCount > 0 && 
-      clampedBy(pos.x, 0, this._page.width) && 
-      clampedBy(pos.y, 0, this._page.height)
-    ) {
-      // Check hovering if within page and there are columns?
-      const hover: [DragItem, number] | null = this._getIsHovering(pos);
+    } else if (clampedBy(pos.x, 0, this._page.width) && clampedBy(pos.y, 0, this._page.height)) {
+      if (this._page.colCount > 0) {
+        // Check hovering if within page and there are columns?
+        const hover: [DragItem, number] | null = this._getIsHovering(pos);
 
-      if (hover === null) {
-        // Nothing hovering
-        this._setStateAndLazyRedraw(DragState.NONE, DragItem.NONE, -1);
+        if (hover === null) {
+          // Nothing hovering
+          this._setStateAndLazyRedraw(DragState.NONE, DragItem.NONE, -1);
+        } else {
+          // Something is being hovered
+          this._setStateAndLazyRedraw(DragState.HOVER, hover[0], hover[1]);
+        }
+      }
+
+      // Check if hovering over any words
+      const hoveredWord: Word | null = this._page.getInterceptedWord(pos);
+
+      if (hoveredWord !== null) {
+        this._page.setTooltipText(`"${hoveredWord.content}" (${this._textSource})`);
       } else {
-        // Something is being hovered
-        this._setStateAndLazyRedraw(DragState.HOVER, hover[0], hover[1]);
+        this._page.setTooltipText("");
       }
     }
   }
@@ -298,8 +310,8 @@ export class InteractiveLayer {
   stopDragging(): void {
     // Hide the message box, if its us
     if (
-      this._state === DragState.DRAGGING && 
-      this._activeItem === DragItem.SELECTION_BOX && 
+      this._state === DragState.DRAGGING &&
+      this._activeItem === DragItem.SELECTION_BOX &&
       this._messageBox.state === MessageBoxState.SHOWN_PERMANENT
     ) {
       this._messageBox.hide();
@@ -329,6 +341,20 @@ export class InteractiveLayer {
   }
 
   /**
+   * Sets an internal flag to change the cursor to loading while running OCR.
+   * @param isRunning Whether OCR is running.
+   */
+  setIsRunningOCR(isRunning: boolean): void {
+    this._isRunningOCR = isRunning;
+    this._page.setCursor(cursorForDragItem(this._activeItem, this._isRunningOCR));
+
+    // Change text source
+    if (this._isRunningOCR) {
+      this._textSource = "OCR";
+    }
+  }
+
+  /**
    * Redraws the entire table.
    */
   redraw(): void {
@@ -347,20 +373,18 @@ export class InteractiveLayer {
     let cumHeight: number = 0;
 
     for (let r: number = 0; r <= this._page.rowCount; r++) {
-      let y: number = this._page.tableY + cumHeight;
-      y *= TABLE_SCALE_FACTOR;
+      const y: number = this._page.tableY + cumHeight;
 
       // Set stroke style
-      const active: boolean = 
+      const active: boolean =
         this._state >= 0 && this._activeItem === DragItem.ROW && this._activeIdx === r;
-      this._ctx.lineWidth =
-        (active ? ACTIVE_TABLE_BORDER_WIDTH : NORMAL_TABLE_BORDER_WIDTH) * TABLE_SCALE_FACTOR;
+      this._ctx.lineWidth = (active ? ACTIVE_TABLE_BORDER_WIDTH : NORMAL_TABLE_BORDER_WIDTH);
       this._ctx.strokeStyle = active ? ACTIVE_TABLE_COLOR : NORMAL_TABLE_COLOR;
 
       // Draw line
       this._ctx.beginPath();
-      this._ctx.moveTo(this._page.tableX * TABLE_SCALE_FACTOR, y);
-      this._ctx.lineTo((this._page.tableX + this._page.tableWidth) * TABLE_SCALE_FACTOR, y);
+      this._ctx.moveTo(this._page.tableX, y);
+      this._ctx.lineTo(this._page.tableX + this._page.tableWidth, y);
       this._ctx.stroke();
 
       // Accumulate the height
@@ -373,20 +397,18 @@ export class InteractiveLayer {
     let cumWidth: number = 0;
 
     for (let c: number = 0; c <= this._page.colCount; c++) {
-      let x: number = this._page.tableX + cumWidth;
-      x *= TABLE_SCALE_FACTOR;
+      const x: number = this._page.tableX + cumWidth;
 
       // Set stroke style
-      const active: boolean = 
+      const active: boolean =
         this._state >= 0 && this._activeItem === DragItem.COL && this._activeIdx === c;
-      this._ctx.lineWidth =
-        (active ? ACTIVE_TABLE_BORDER_WIDTH : NORMAL_TABLE_BORDER_WIDTH) * TABLE_SCALE_FACTOR;
+      this._ctx.lineWidth = (active ? ACTIVE_TABLE_BORDER_WIDTH : NORMAL_TABLE_BORDER_WIDTH);
       this._ctx.strokeStyle = active ? ACTIVE_TABLE_COLOR : NORMAL_TABLE_COLOR;
 
       // Draw line
       this._ctx.beginPath();
-      this._ctx.moveTo(x, this._page.tableY * TABLE_SCALE_FACTOR);
-      this._ctx.lineTo(x, (this._page.tableY + this._page.tableHeight) * TABLE_SCALE_FACTOR);
+      this._ctx.moveTo(x, this._page.tableY);
+      this._ctx.lineTo(x, this._page.tableY + this._page.tableHeight);
       this._ctx.stroke();
 
       // Accumulate the width across
@@ -400,15 +422,15 @@ export class InteractiveLayer {
       this._ctx.globalAlpha = 0.4;
       this._ctx.fillStyle = "gray";
       this._ctx.fillRect(
-        this._firstMousePos.x * TABLE_SCALE_FACTOR,
-        this._firstMousePos.y * TABLE_SCALE_FACTOR,
-        (this._lastMousePos.x - this._firstMousePos.x) * TABLE_SCALE_FACTOR,
-        (this._lastMousePos.y - this._firstMousePos.y) * TABLE_SCALE_FACTOR,
+        this._firstMousePos.x,
+        this._firstMousePos.y,
+        this._lastMousePos.x - this._firstMousePos.x,
+        this._lastMousePos.y - this._firstMousePos.y,
       );
       this._ctx.globalAlpha = 1;
     }
 
     // Set pointer
-    this._page.setCursor(cursorForDragItem(this._activeItem));
+    this._page.setCursor(cursorForDragItem(this._activeItem, this._isRunningOCR));
   }
 }

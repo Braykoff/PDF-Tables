@@ -1,4 +1,8 @@
+import Tesseract, { PSM, Scheduler, Worker } from "tesseract.js";
 import { Page } from "./page";
+
+/** Default number of CPU cores. */
+export const DEFAULT_HARDWARE_CONCURRENCY: number = 4;
 
 /** A type representing a 2d pos. */
 export interface Pos {
@@ -9,6 +13,15 @@ export interface Pos {
 /** An empty 2d pos (NaN, NaN). */
 export const EMPTY_POS: Pos = { x: NaN, y: NaN };
 
+/**
+ * Computes the distance between two 2d positions.
+ * @param pos1 The first position.
+ * @param pos2 The second position.
+ * @returns The distance.
+ */
+export function dist(pos1: Pos, pos2: Pos): number {
+  return Math.sqrt(Math.pow(pos1.x - pos2.x, 2) + Math.pow(pos1.y - pos2.y, 2));
+}
 
 /**
  * Checks if a string is undefined, null, or only whitespace.
@@ -115,6 +128,34 @@ export function downloadFile(name: string, content: string, type: string = "text
   // Clean up Blob and link
   a.remove();
   URL.revokeObjectURL(url);
+}
+
+/**
+ * Runs OCR on all the provided pages.
+ * @param pages The list of pages to run OCR on.
+ */
+export async function runOCR(pages: Page[]): Promise<void> {
+  // Init scheduler, workers
+  const scheduler: Scheduler = Tesseract.createScheduler();
+  const workerCount: number = navigator.hardwareConcurrency || DEFAULT_HARDWARE_CONCURRENCY;
+
+  for (let n: number = 0; n < workerCount; n++) {
+    const worker: Worker = await Tesseract.createWorker("eng");
+    worker.setParameters({
+      tessedit_pageseg_mode: PSM.SPARSE_TEXT,
+    });
+
+    scheduler.addWorker(worker);
+  }
+
+  console.log(`Initialized ${workerCount} Tesseract workers.`);
+
+  // Add and wait for each page job
+  await Promise.all(pages.map((p: Page) => {
+    return p.runOCR(scheduler);
+  }));
+
+  console.log("OCR finished");
 }
 
 /**

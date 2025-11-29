@@ -1,26 +1,27 @@
 import { PDFDocumentProxy, PDFPageProxy } from "pdfjs-dist";
 import { TextItem, TextMarkedContent } from "pdfjs-dist/types/src/display/api.js";
-import { DEFAULT_COLS, MIN_COL_SIZE } from "./constants.js";
+import { RecognizeResult, Scheduler } from "tesseract.js";
+import { DEFAULT_COLS, MIN_COL_SIZE, PDF_SCALE_FACTOR } from "./constants.js";
 import { InteractiveLayer } from "./interactive-layer.js";
 import { MessageBox } from "./message-box.js";
 import { getWord, renderPDFOntoCanvas, Word } from "./pdf-wrapper.js";
-import { clamp, clampedBy, get2dCanvasContext, isStringEmpty, Pos } from "./utils.js";
+import { clamp, clampedBy, dist, get2dCanvasContext, isStringEmpty, Pos } from "./utils.js";
 
 // MARK: Constants
 /** Max number of columns. */
 const MAX_COLS: number = 50;
 
 /** Default column size, px. */
-const DEFAULT_COL_SIZE: number = 25;
+const DEFAULT_COL_SIZE: number = 25 * PDF_SCALE_FACTOR; // eslint-disable-line no-magic-numbers
 
 /** Default height of a table, px. */
-const DEFAULT_TABLE_HEIGHT: number = 40;
+const DEFAULT_TABLE_HEIGHT: number = 40 * PDF_SCALE_FACTOR; // eslint-disable-line no-magic-numbers
 
 /** Minimum height of a table, px. */
-const MIN_TABLE_HEIGHT: number = 2;
+const MIN_TABLE_HEIGHT: number = 2 * PDF_SCALE_FACTOR;  
 
 /** Radius of the circles representing text boxes. */
-const TEXT_BOX_RADIUS: number = 2;
+const TEXT_BOX_RADIUS: number = 2 * PDF_SCALE_FACTOR;  
 
 /** Color of the circles representing text boxes. */
 const TEXT_BOX_COLOR: string = "red";
@@ -75,7 +76,9 @@ export class Page {
 
   // Page elements
   private _canvasContainer: HTMLDivElement;
+  private _pdfCanvas: HTMLCanvasElement;
   private _wordCanvas: HTMLCanvasElement;
+  private _wordCtx: CanvasRenderingContext2D;
   private _interactiveLayer: InteractiveLayer;
 
   // Table properties
@@ -83,7 +86,8 @@ export class Page {
   private _tableWidth: number = DEFAULT_COLS * DEFAULT_COL_SIZE;
   private _rowHeights: number[] = [DEFAULT_TABLE_HEIGHT];
   private _tableHeight: number = DEFAULT_TABLE_HEIGHT;
-  private _tableCoords: Pos = { x: 5, y: 5 };  
+  // eslint-disable-next-line no-magic-numbers
+  private _tableCoords: Pos = { x: 5 * PDF_SCALE_FACTOR, y: 5 * PDF_SCALE_FACTOR };
   private _indexColumn: number = 0;
   /** Combined width of all columns to the left of the index column, px. */
   private _leftOfIndex: number = 0;
@@ -101,11 +105,11 @@ export class Page {
    * @param messageBox The message box to display info on.
    */
   constructor(
-    pageContainer: HTMLDivElement, 
-    pageNum: number, 
-    pdfCanvas: HTMLCanvasElement, 
-    width: number, 
-    height: number, 
+    pageContainer: HTMLDivElement,
+    pageNum: number,
+    pdfCanvas: HTMLCanvasElement,
+    width: number,
+    height: number,
     textContent: (TextItem | TextMarkedContent)[],
     messageBox: MessageBox,
   ) {
@@ -122,6 +126,7 @@ export class Page {
     this.setZoom(1.0); // Sets width, height, and _zoom.
 
     // Add PDF canvas
+    this._pdfCanvas = pdfCanvas;
     this._canvasContainer.appendChild(pdfCanvas);
 
     // Create word canvas
@@ -132,9 +137,8 @@ export class Page {
     this._wordCanvas.classList.add("wordCanvas");
     this._canvasContainer.appendChild(this._wordCanvas);
 
-    // Render words onto word canvas
-    const wordCtx: CanvasRenderingContext2D = get2dCanvasContext(this._wordCanvas);
-    wordCtx.fillStyle = TEXT_BOX_COLOR;
+    // Get words
+    this._wordCtx = get2dCanvasContext(this._wordCanvas);
 
     this._words = [];
 
@@ -142,19 +146,10 @@ export class Page {
       if (isTextItem(text) && !isStringEmpty(text.str)) {
         const word: Word = getWord(text, height);
         this._words.push(word);
-
-        // Render on canvas
-        wordCtx.beginPath();
-        wordCtx.arc(word.pos.x, word.pos.y, TEXT_BOX_RADIUS, 0, 2 * Math.PI);
-        wordCtx.fill();
       }
     }
 
-    // Sort word list left-to-right, top-to-bottom
-    this._words.sort((a: Word, b: Word) => {
-      if (a.pos.y !== b.pos.y) { return a.pos.y - b.pos.y; }
-      return a.pos.x - b.pos.x;
-    });
+    this._processNewWordList();
 
     // Init interactive layer
     this._interactiveLayer = new InteractiveLayer(this, messageBox);
@@ -170,13 +165,13 @@ export class Page {
    * @returns A Page object for this page.
    */
   static async create(
-    pageContainer: HTMLDivElement, 
-    messageBox: MessageBox, 
-    pdf: PDFDocumentProxy, 
+    pageContainer: HTMLDivElement,
+    messageBox: MessageBox,
+    pdf: PDFDocumentProxy,
     pageNum: number,
   ): Promise<Page> {
     // Await page, info
-    const [canvas, page, width, height]: [HTMLCanvasElement, PDFPageProxy, number, number] = 
+    const [canvas, page, width, height]: [HTMLCanvasElement, PDFPageProxy, number, number] =
       await renderPDFOntoCanvas(pdf, pageNum);
 
     // Await words
@@ -220,13 +215,43 @@ export class Page {
   }
 
   /**
+   * Sets the tooltip text (title).
+   * @param text The message to set the text to.
+   */
+  setTooltipText(text: string): void {
+    this._canvasContainer.title = text;
+  }
+
+  /**
    * Zooms the page in/out.
    * @param zoom The zoom to set to, %.
    */
   setZoom(zoom: number): void {
-    this._zoom = zoom;
-    this._canvasContainer.style.width = `${this.width * zoom}px`;
-    this._canvasContainer.style.height = `${this.height * zoom}px`;
+    this._zoom = zoom / PDF_SCALE_FACTOR;
+    this._canvasContainer.style.width = `${this.width * this._zoom}px`;
+    this._canvasContainer.style.height = `${this.height * this._zoom}px`;
+  }
+
+  /**
+   * After setting a new word list, call this to redraw the word canvas and sort the list in
+   * left-to-right, top-to-bottom order.
+   */
+  private _processNewWordList(): void {
+    // Render words onto canvas
+    this._wordCtx.reset();
+    this._wordCtx.fillStyle = TEXT_BOX_COLOR;
+
+    for (const word of this._words) {
+      this._wordCtx.beginPath();
+      this._wordCtx.arc(word.pos.x, word.pos.y, TEXT_BOX_RADIUS, 0, 2 * Math.PI);
+      this._wordCtx.fill();
+    }
+
+    // Sort word list left-to-right, top-to-bottom
+    this._words.sort((a: Word, b: Word) => {
+      if (a.pos.y !== b.pos.y) { return a.pos.y - b.pos.y; }
+      return a.pos.x - b.pos.x;
+    });
   }
 
   // MARK: Table properties
@@ -494,6 +519,50 @@ export class Page {
     return formattedRows.join("\n");
   }
 
+  // MARK: OCR
+  /**
+   *
+   * @param scheduler
+   */
+  async runOCR(scheduler: Scheduler): Promise<void> {
+    // Clear all our words
+    this._words = [];
+    this._interactiveLayer.setIsRunningOCR(true);
+    this._processNewWordList();
+
+    // Add our recognition job
+    const result: RecognizeResult = await scheduler.addJob(
+      "recognize",
+      this._pdfCanvas,
+      undefined,
+      { blocks: true },
+    );
+
+    // Process the results
+    if (result.data.blocks === null) {
+      console.warn(`OCR on page ${this.index} gave null.`);
+      return;
+    }
+
+    for (const box of result.data.blocks) {
+      const str: string = box.text.replaceAll("\n", ""); // Remove new lines
+      if (isStringEmpty(str)) { continue; } // Skip empty text boxes
+
+      // Add new word
+      this._words.push({
+        content: str,
+        pos: {
+          x: (box.bbox.x0 + box.bbox.x1) / 2,
+          y: (box.bbox.y0 + box.bbox.y1) / 2,
+        },
+      });
+    }
+
+    // Render new words
+    this._processNewWordList();
+    this._interactiveLayer.setIsRunningOCR(false);
+  }
+
   // MARK: Getters
   /**
    * Determines the number of words bounded by the given box.
@@ -517,6 +586,21 @@ export class Page {
     }
 
     return wordCount;
+  }
+
+  /**
+   * Determines which word is intercepted by a position.
+   * @param pos The position to check.
+   * @returns The word intercept, or null if no words are intercepted.
+   */
+  getInterceptedWord(pos: Pos): Word | null {
+    for (const word of this._words) {
+      if (dist(pos, word.pos) <= TEXT_BOX_RADIUS) {
+        return word;
+      }
+    }
+
+    return null;
   }
 
   /**
@@ -611,7 +695,7 @@ export class Page {
    */
   getColWidth(col: number): number {
     if (!clampedBy(col, 0, this._columnWidths.length)) {
-      throw new Error(`Column out of bounds: ${  col}`);
+      throw new Error(`Column out of bounds: ${col}`);
     }
 
     return this._columnWidths[col]!;
@@ -624,7 +708,7 @@ export class Page {
    */
   getRowHeight(row: number): number {
     if (!clampedBy(row, 0, this._rowHeights.length)) {
-      throw new Error(`Row out of bounds: ${  row}`);
+      throw new Error(`Row out of bounds: ${row}`);
     }
 
     return this._rowHeights[row]!;

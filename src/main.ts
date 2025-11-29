@@ -4,7 +4,7 @@ import { DEFAULT_COLS } from "./constants.js";
 import { MessageBox } from "./message-box.js";
 import { Page } from "./page.js";
 import { loadPDFFromFile, setGlobalWorkerSource } from "./pdf-wrapper.js";
-import { clamp, downloadFile, writeCSV } from "./utils.js";
+import { clamp, downloadFile, runOCR, writeCSV } from "./utils.js";
 
 /** Ratio between milliseconds and seconds. */
 const MILLISECONDS_TO_SECONDS: number = 1000;
@@ -27,6 +27,7 @@ interface DomElements {
   zoomOutAction: HTMLSpanElement;
   zoomInAction: HTMLSpanElement;
   toggleTextBoxesButton: HTMLSpanElement;
+  runOCRButton: HTMLSpanElement;
   applyAllButton: HTMLSpanElement;
   detectRowsButton: HTMLSpanElement;
   extractButton: HTMLSpanElement;
@@ -43,6 +44,7 @@ const dom: Readonly<DomElements> = Object.freeze({
   zoomOutAction: document.getElementById("zoomOutAction") as HTMLSpanElement,
   zoomInAction: document.getElementById("zoomInAction") as HTMLSpanElement,
   toggleTextBoxesButton: document.getElementById("showTextboxesAction") as HTMLSpanElement,
+  runOCRButton: document.getElementById("ocrAction") as HTMLSpanElement,
   applyAllButton: document.getElementById("applyToAllAction") as HTMLSpanElement,
   detectRowsButton: document.getElementById("detectRowsAction") as HTMLSpanElement,
   extractButton: document.getElementById("extractAction") as HTMLSpanElement,
@@ -57,6 +59,7 @@ interface AppState {
   pages: Page[];
   zoom: number;
   textBoxesShown: boolean;
+  runningOCR: boolean;
 }
 
 const state: AppState = {
@@ -64,6 +67,7 @@ const state: AppState = {
   pages: [],
   zoom: 1.0,
   textBoxesShown: false,
+  runningOCR: false,
 };
 
 // Message box
@@ -193,6 +197,33 @@ dom.zoomOutAction.addEventListener("click", () => { setZoom(state.zoom - ZOOM_RA
 // Zoom in button
 dom.zoomInAction.addEventListener("click", () => { setZoom(state.zoom + ZOOM_RATE); });
 
+// Run OCR button
+dom.runOCRButton.addEventListener("click", () => {
+  // Don't run multiple OCR tasks at once
+  if (state.runningOCR) {
+    console.warn("Will not run multiple OCR processes at once.");
+    return;
+  }
+
+  // Double check with user
+  const ok: boolean =
+    confirm("Are you sure? This will run OCR on all pages, which may take some time.");
+
+  if (!ok) {
+    console.warn("User canceled OCR.");
+    return;
+  }
+
+  // Run OCR
+  state.runningOCR = true;
+  dom.runOCRButton.innerText = "...";
+
+  runOCR(state.pages).then(() => {
+    dom.runOCRButton.innerText = "OCR";
+    state.runningOCR = false;
+  });
+});
+
 // Show/Hide Text boxes on toggle
 dom.toggleTextBoxesButton.addEventListener("click", () => {
   state.textBoxesShown = !state.textBoxesShown;
@@ -234,7 +265,7 @@ dom.extractButton.addEventListener("click", () => {
 // MARK: Key binds
 document.addEventListener("keydown", (evt: KeyboardEvent) => {
   // Do nothing if not ctrl key down
-  if (!(evt.metaKey || evt.ctrlKey || evt.shiftKey)) {return;}
+  if (!(evt.metaKey || evt.ctrlKey || evt.shiftKey)) { return; }
 
   switch (evt.key.toLowerCase()) {
   case "o":

@@ -3,6 +3,7 @@ import {
   PDFDocumentProxy, PDFPageProxy,
 } from "pdfjs-dist";
 import { TextItem } from "pdfjs-dist/types/src/display/api";
+import { PDF_SCALE_FACTOR } from "./constants";
 import { get2dCanvasContext, Pos } from "./utils";
 
 /** A type representing a word on the page. */
@@ -44,7 +45,7 @@ export async function renderPDFOntoCanvas(
   pageNum: number,
 ): Promise<[HTMLCanvasElement, PDFPageProxy, number, number]> {
   const page: PDFPageProxy = await pdf.getPage(pageNum);
-  const viewport: PageViewport = page.getViewport({ scale: 1 });
+  const viewport: PageViewport = page.getViewport({ scale: PDF_SCALE_FACTOR });
 
   const canvas: HTMLCanvasElement = document.createElement("canvas");
   canvas.width = viewport.width;
@@ -59,16 +60,17 @@ export async function renderPDFOntoCanvas(
  * Converts a TextItem from pdfjs into a Word, such that the pos is from the center of the word to
  * the top-left of the page.
  * @param word A word returned by page.getTextContent().items.
- * @param pageHeight The height of the page.
+ * @param pageHeight The height of the page, px.
  * @returns The word as a Word object.
  */
 export function getWord(word: TextItem, pageHeight: number): Word {
-  const [, , c = 0, d = 0, e = 0, f = 0]: (number | undefined)[] = word.transform;
+  const [, , c = 0, d = 0, e = 0, f = 0]: (number | undefined)[] =
+    word.transform.map((val: number) => val * PDF_SCALE_FACTOR);
   const height: number = Math.sqrt(c * c + d * d); // word.height is usually wrong
 
   return {
     pos: {
-      x: e + (word.width / 2),
+      x: e + (word.width * PDF_SCALE_FACTOR / 2),
       y: pageHeight - (f + (height / 2)),
     },
     content: word.str,
