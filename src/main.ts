@@ -214,6 +214,11 @@ dom.runOCRButton.addEventListener("click", () => {
     return;
   }
 
+  // Show text labels to prove completion
+  if (!state.textBoxesShown) {
+    dom.toggleTextBoxesButton.click();
+  }
+
   // Run OCR
   state.runningOCR = true;
   dom.runOCRButton.innerText = "...";

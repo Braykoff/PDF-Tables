@@ -155,7 +155,9 @@ export async function runOCR(pages: Page[]): Promise<void> {
     return p.runOCR(scheduler);
   }));
 
+  // Clean up scheduler
   console.log("OCR finished");
+  scheduler.terminate();
 }
 
 /**
